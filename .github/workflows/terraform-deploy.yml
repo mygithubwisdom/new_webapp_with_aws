@@ -1,0 +1,78 @@
+name: CI/CD - Terraform Deploy to EC2
+
+on:
+  push:
+    branches: [ "main" ]   # Trigger deployment on push to main
+  workflow_dispatch:        # Allow manual trigger
+
+permissions:
+  id-token: write           # Required for OIDC authentication
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ✅ Configure AWS credentials via GitHub OIDC
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::348954428490:role/node-jswebapp_github_pass
+          aws-region: us-east-1
+
+      # ✅ Setup Terraform
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5   # or your preferred version
+
+        
+      # ✅ Initialize and validate Terraform
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: terraform plan -out=tfplan
+
+      # ✅ Apply infrastructure changes
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
+      # ✅ Setup SSH key for deployment
+      - name: Configure SSH Access
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+        shell: bash
+
+      # ✅ Deploy application to EC2
+      - name: Deploy to EC2
+        run: |
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh ${{ secrets.EC2_HOST }} ~/.ssh/deploy_key
+        shell: bash
+
+      # ✅ Verify deployment health
+      - name: Verify deployment
+        run: |
+          echo "Waiting for app to start..."
+          sleep 15
+          curl -f http://${{ secrets.EC2_HOST }}:3000/health || exit 1
+
+      # ✅ Notify result
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+          fi
