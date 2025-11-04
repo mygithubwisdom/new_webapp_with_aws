@@ -22,7 +22,7 @@ variable "ami_id" {
 variable "key_pair_name" {
   description = "Name of the SSH key pair for EC2 instance"
   type        = string
-  default     = "aliciakeysserver"
+  default     = "ubuntutask"
 }
 
 variable "ec2_instance_type" {
