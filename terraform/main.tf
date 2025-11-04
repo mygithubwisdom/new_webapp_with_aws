@@ -12,14 +12,6 @@ terraform {
 # Configure the AWS Provider
 provider "aws" {
   region = "us-east-1"
-
-  default_tags {
-    tags = {
-      Owner       = "main_developer"
-      Environment = "Development" //var.environment
-      Project     = "Terraform AWS webapp-setup"
-    }
-  }
 }
 
 # Optional: Configure S3 backend for state management
