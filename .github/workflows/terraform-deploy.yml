@@ -34,16 +34,20 @@ jobs:
       # ✅ Initialize and validate Terraform
       - name: Terraform Init
         run: terraform init
+        working-directory: ./terraform
 
       - name: Terraform Validate
         run: terraform validate
+        working-directory: ./terraform
 
       - name: Terraform Plan
         run: terraform plan -out=tfplan
+        working-directory: ./terraform
 
       # ✅ Apply infrastructure changes
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
+        working-directory: ./terraform
 
       # ✅ Setup SSH key for deployment
       - name: Configure SSH Access
