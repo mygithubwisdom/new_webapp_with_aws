@@ -41,12 +41,12 @@ jobs:
         working-directory: ./terraform
 
       - name: Terraform Plan
-        run: terraform -chdir=terraform plan -var="ami_id=ami-0360c520857e3138f" -out=tfplan
+        run: terraform -chdir=./terraform plan -var="ami_id=ami-0360c520857e3138f" -out=tfplan
         working-directory: ./terraform
 
       # ✅ Apply infrastructure changes
       - name: Terraform Apply
-        run: terraform -chdir=terraform apply -auto-approve -var="ami_id=ami-0360c520857e3138f"
+        run: terraform -chdir=./terraform apply -auto-approve -var="ami_id=ami-0360c520857e3138f"
         working-directory: ./terraform
 
       # ✅ Setup SSH key for deployment
