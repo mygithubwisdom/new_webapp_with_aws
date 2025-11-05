@@ -48,21 +48,25 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -auto-approve -var="ami_id=ami-0360c520857e3138f"
         working-directory: ./terraform
-
-      # ✅ Setup SSH key for deployment
-      - name: Configure SSH Access
+       
+      - name: Get EC2 public IP
+        id: ec2
+        working-directory: ./terraform
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-        shell: bash
+          IP=$(terraform output -raw public_ip)
+          echo "public_ip=$IP" >> $GITHUB_ENV
+          echo "EC2 Public IP: $IP"
 
-      # ✅ Deploy application to EC2
-      - name: Deploy to EC2
-        run: |
-          chmod +x scripts/deploy.sh
-          ./scripts/deploy.sh ${{ secrets.EC2_HOST }} ~/.ssh/deploy_key
-        shell: bash
+      # ✅ SSH into EC2 and deploy app
+      - name: SSH into EC2 and deploy app
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ env.public_ip }} 
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: | 
+            echo "Connected to EC2 successfully!"
+            bash /home/ubuntu/deploy_app.sh
 
       # ✅ Verify deployment health
       - name: Verify deployment

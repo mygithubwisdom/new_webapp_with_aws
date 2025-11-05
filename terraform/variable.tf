@@ -20,9 +20,8 @@ variable "ami_id" {
   type        = string
 }
 variable "key_pair_name" {
-  description = "Name of the SSH key pair for EC2 instance"
+  description = "EC2 key pair name for SSH"
   type        = string
-  default     = "ubuntutask"
 }
 
 variable "ec2_instance_type" {
@@ -34,11 +33,6 @@ variable "environment" {
   description = "Deployment environment"
   type        = string
   default     = "Development"
-}
-
-variable "ssh_key_name" {
-  description = "SSH key pair name"
-  type        = string
 }
 
 variable "vpc_cidr" {

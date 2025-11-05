@@ -19,7 +19,7 @@ resource "aws_instance" "example" {
   instance_type               = "t3.micro"
   subnet_id                   = aws_subnet.Publicsubnet.id
   associate_public_ip_address = true
-  key_name                    = var.ssh_key_name
+  key_name                    = var.key_pair_name
 
   tags = {
     Name = "HelloWorld" //app-server or web-server
