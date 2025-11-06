@@ -3,7 +3,6 @@ resource "aws_eip" "web_server_eip" {
   instance = aws_instance.example.id
 }
 
-
 resource "aws_iam_policy" "s3_access" {
   name = "s3_bucket_access_policy"
 

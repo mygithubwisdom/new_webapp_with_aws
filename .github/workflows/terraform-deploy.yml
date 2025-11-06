@@ -41,12 +41,16 @@ jobs:
         working-directory: ./terraform
 
       - name: Terraform Plan
-        run: terraform plan -var="ami_id=ami-0360c520857e3138f" -out=tfplan
+        run: terraform plan -out=tfplan \
+             -var="ami_id=ami-0360c520857e3138f" \
+             -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}"
         working-directory: ./terraform
 
       # ✅ Apply infrastructure changes
       - name: Terraform Apply
-        run: terraform apply -auto-approve -var="ami_id=ami-0360c520857e3138f"
+        run: terraform apply -auto-approve \
+             -var="ami_id=ami-0360c520857e3138f" \
+             -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}"
         working-directory: ./terraform
        
       - name: Get EC2 public IP
