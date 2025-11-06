@@ -50,13 +50,13 @@ jobs:
         working-directory: ./terraform
        
       - name: Get EC2 public IP
-        id: ec2
-        working-directory: ./terraform
+        id: ec2        
         run: |
           IP=$(terraform output -raw public_ip)
           echo "public_ip=$IP" >> $GITHUB_ENV
           echo "EC2 Public IP: $IP"
-
+        working-directory: ./terraform  
+        
       # ✅ SSH into EC2 and deploy app
       - name: SSH into EC2 and deploy app
         uses: appleboy/ssh-action@v1.0.3
