@@ -12,7 +12,7 @@ resource "aws_security_group" "bastion" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.your_laptop_ip] # Example: "203.0.113.45/32"
+    cidr_blocks = [var.SSH_laptop_ip] # Example: "203.0.113.45/32"
   }
 
   egress {
@@ -51,7 +51,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = [var.your_laptop_ip] # Only your IP
+    cidr_blocks = [var.SSH_laptop_ip] # Only your IP
   }
 
   # HTTP from INTERNET (for public access)
@@ -69,7 +69,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] //[var.your_laptop_ip]  # Only your IP
+    cidr_blocks = ["0.0.0.0/0"] //[var.SSH_laptop_ip]  # Only your IP
   }
 
   # HTTPS (for production)
