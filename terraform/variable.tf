@@ -110,7 +110,6 @@ variable "https_port" {
 variable "SSH_laptop_ip" {
   description = "The public IP address of your laptop in CIDR notation (e.g., 102.89.15.10/32)"
   type        = string
-  default     = var.your_laptop_ip
 }
 
 
