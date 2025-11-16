@@ -13,13 +13,15 @@ terraform {
 provider "aws" {
   region = "us-east-1"
 }
-
-# Optional: Configure S3 backend for state management
-# backend "s3" {
-#   bucket = "your-terraform-state-bucket"
-#   key    = "node-app/terraform.tfstate"
-#   region = "us-east-1"
-# }
+ 
+terraform {
+  backend "s3" {
+    bucket         = "terraform-aws-webapp-setup-static-content-4ec3ab3c"  
+    key            = "terraform/state/terraform.tfstate"                  
+    region         = "us-east-1"                                          
+    encrypt        = true                                                 
+  }
+}
 
 
 # VPC
@@ -85,32 +87,32 @@ resource "aws_route_table_association" "PublicSubnetAssociation" {
   route_table_id = aws_route_table.publicroutetable.id
 }
 
-# Elastic IP for NAT Gateway (for private subnet internet access)
-resource "aws_eip" "nat" {
-  domain = "vpc"
+# # Elastic IP for NAT Gateway (for private subnet internet access)
+# resource "aws_eip" "nat" {
+#   domain = "vpc"
 
-  tags = {
-    Name = "${var.project_name}-nat-eip"
-  }
-}
+#   tags = {
+#     Name = "${var.project_name}-nat-eip"
+#   }
+# }
 
 
-# NAT Gateway
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.Publicsubnet.id
+# # NAT Gateway
+# resource "aws_nat_gateway" "main" {
+#   allocation_id = aws_eip.nat.id
+#   subnet_id     = aws_subnet.Publicsubnet.id
 
-  tags = {
-    Name = "${var.project_name}-nat-gateway"
-  }
+#   tags = {
+#     Name = "${var.project_name}-nat-gateway"
+#   }
 
-  depends_on = [aws_internet_gateway.main]
-}
+#   depends_on = [aws_internet_gateway.main]
+# }
+
 # Private Route Table
 resource "aws_route_table" "PrivateRouteTable" {
   vpc_id = aws_vpc.main-webapp.id
-
-  # No direct route to the internet
+  
   tags = {
     Name = "${var.project_name}-private-rt"
   }
@@ -121,6 +123,7 @@ resource "aws_route_table_association" "PrivateSubnetAssociation" {
   subnet_id      = aws_subnet.Privatesubnet.id
   route_table_id = aws_route_table.PrivateRouteTable.id
 }
+
 
 data "aws_ami" "ubuntu" {
   most_recent = true

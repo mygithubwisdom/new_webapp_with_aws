@@ -34,6 +34,17 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@"$EC2_HOST" << 'EOF'
   pm2 startup
 EOF
 
+echo "☁️ Uploading static content to S3..."
+
+# Bucket and prefix
+S3_BUCKET="terraform-aws-webapp-setup-static-content-4ec3ab3c"
+S3_PREFIX="static/"
+
+# Sync local static files (e.g., assets, images, etc.)
+aws s3 sync ./public "s3://$S3_BUCKET/$S3_PREFIX" --delete --region us-east-1
+
+echo "✅ Static content uploaded to s3://$S3_BUCKET/$S3_PREFIX"
+
 echo "✅ Deployment complete!"
 echo "🌐 Application URL: http://$EC2_HOST:3000"
 echo "🔍 Check health: curl http://$EC2_HOST:3000/health"

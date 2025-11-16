@@ -1,10 +1,10 @@
-resource "aws_eip" "web_server_eip" {
-  domain   = "vpc"
-  instance = aws_instance.example.id
-}
+# resource "aws_eip" "web_server_eip" {
+#   domain   = "vpc"
+#   instance = aws_instance.example.id
+# }
 
 resource "aws_iam_policy" "s3_access" {
-  name = "s3_bucket_access_policy"
+  name = "AllowS3TerraformBackendAccess"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -19,8 +19,8 @@ resource "aws_iam_policy" "s3_access" {
           "s3:DeleteObject"
         ]
         Resource = [
-          aws_s3_bucket.static_content.arn,
-          "${aws_s3_bucket.static_content.arn}/*"
+          "arn:aws:s3:::terraform-aws-webapp-setup-static-content-4ec3ab3c",
+          "arn:aws:s3:::terraform-aws-webapp-setup-static-content-4ec3ab3c/*"
         ]
       },
       {
@@ -35,6 +35,7 @@ resource "aws_iam_policy" "s3_access" {
     ]
   })
 }
+
 
 # User data script
 locals {
