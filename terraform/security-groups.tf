@@ -38,11 +38,11 @@ resource "aws_security_group" "ec2" {
 
   # SSH from Bastion Host ONLY
   ingress {
-    description     = "SSH from Bastion"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = ["0.0.0.0/0"] # TEMP open
+    description = "SSH from Bastion"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # TEMP open
   }
 
   # HTTP from YOUR LAPTOP (for testing)
