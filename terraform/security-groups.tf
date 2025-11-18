@@ -42,7 +42,7 @@ resource "aws_security_group" "ec2" {
     from_port       = 22
     to_port         = 22
     protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id] //[var.allowed_ssh_cidr] # Only my IP
+    security_groups = ["0.0.0.0/0"] # TEMP open
   }
 
   # HTTP from YOUR LAPTOP (for testing)
