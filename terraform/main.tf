@@ -102,7 +102,7 @@ resource "aws_route_table_association" "PublicSubnetAssociation" {
 # Private Route Table
 resource "aws_route_table" "PrivateRouteTable" {
   vpc_id = aws_vpc.main-webapp.id
-  
+
   tags = {
     Name = "${var.project_name}-private-rt"
   }
@@ -140,8 +140,8 @@ resource "aws_instance" "example" {
   vpc_security_group_ids = [
     aws_security_group.ec2.id
   ]
-  
-  key_name                    = var.key_pair_name
+
+  key_name = var.key_pair_name
 
   tags = {
     Name = "HelloWorld" //app-server or web-server

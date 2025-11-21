@@ -76,7 +76,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | 
             echo "Connected to EC2 successfully!"
-            bash /home/ubuntu/deploy_app.sh
+            bash /home/ubuntu/deploy.sh 
 
       # ✅ Verify deployment health
       - name: Verify deployment
