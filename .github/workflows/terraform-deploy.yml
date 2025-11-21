@@ -66,6 +66,13 @@ jobs:
           echo "public_ip=$IP" >> $GITHUB_ENV
           echo "EC2 Public IP: $IP"
         working-directory: ./terraform  
+
+      # ✅ Upload deploy script to EC2
+      - name: Upload deploy script to EC2
+        run: |
+          scp -i ${{ secrets.SSH_PRIVATE_KEY }} \
+            -o StrictHostKeyChecking=no \
+            ./deploy.sh ubuntu@${{ env.public_ip }}:/home/ubuntu/deploy.sh
         
       # ✅ SSH into EC2 and deploy app
       - name: SSH into EC2 and deploy app
@@ -76,6 +83,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: | 
             echo "Connected to EC2 successfully!"
+            chmod +x /home/ubuntu/deploy.sh
             bash /home/ubuntu/deploy.sh 
 
       # ✅ Verify deployment health
