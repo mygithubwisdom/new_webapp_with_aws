@@ -67,6 +67,11 @@ jobs:
           echo "EC2 Public IP: $IP"
         working-directory: ./terraform  
 
+      - name: Prepare SSH key file
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
+          chmod 600 ssh_key.pem
+
       # ✅ Upload deploy script to EC2
       - name: Upload deploy script to EC2
         run: |
