@@ -77,7 +77,7 @@ jobs:
         run: |
           scp -i ~/.ssh/ubuntutask.pem \
             -o StrictHostKeyChecking=no \
-            ./deploy.sh ubuntu@${{ env.public_ip }}:/home/ubuntu/deploy.sh
+            ./terraform/deploy.sh ubuntu@${{ env.public_ip }}:/home/ubuntu/deploy.sh
         
       # ✅ SSH into EC2 and deploy app
       - name: SSH into EC2 and deploy app
