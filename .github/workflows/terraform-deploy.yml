@@ -69,13 +69,13 @@ jobs:
 
       - name: Prepare SSH key file
         run: |
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key.pem
-          chmod 600 ssh_key.pem
+          echo "${{ secrets.deploy_key }}" > ubuntutask.pem
+          chmod 600 ubuntutask.pem
 
       # ✅ Upload deploy script to EC2
       - name: Upload deploy script to EC2
         run: |
-          scp -i ${{ secrets.SSH_PRIVATE_KEY }} \
+          scp -i ~/.ssh/projecttask.pem \
             -o StrictHostKeyChecking=no \
             ./deploy.sh ubuntu@${{ env.public_ip }}:/home/ubuntu/deploy.sh
         
