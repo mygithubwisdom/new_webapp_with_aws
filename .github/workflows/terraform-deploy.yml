@@ -75,7 +75,7 @@ jobs:
       # ✅ Upload deploy script to EC2
       - name: Upload deploy script to EC2
         run: |
-          scp -i ~/.ssh/projecttask.pem \
+          scp -i ~/.ssh/ubuntutask.pem \
             -o StrictHostKeyChecking=no \
             ./deploy.sh ubuntu@${{ env.public_ip }}:/home/ubuntu/deploy.sh
         
