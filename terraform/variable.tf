@@ -22,6 +22,7 @@ variable "ami_id" {
 variable "key_pair_name" {
   description = "EC2 key pair name for SSH"
   type        = string
+  default     = "ubuntutask"
 }
 
 variable "ec2_instance_type" {
