@@ -69,16 +69,18 @@ jobs:
 
       - name: Prepare SSH key file
         run: |
-          echo "${{ secrets.deploy_key }}" > ubuntutask.pem
-          chmod 600 ubuntutask.pem
-
-      # ✅ Upload deploy script to EC2
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /home/runner/.ssh/SSH_PRIVATE_KEY.pem
+          chmod 600 /home/runner/.ssh/SSH_PRIVATE_KEY.pem
+          ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no ubuntu@${{ env.public_ip }} 
+          sudo apt update
+      
+          # # ✅ Upload deploy script to EC2
       - name: Upload deploy script to EC2
         run: |
-          scp -i ~/.ssh/ubuntutask.pem \
+          scp -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem \
             -o StrictHostKeyChecking=no \
             ./terraform/scripts/deploy.sh ubuntu@${{ env.public_ip }}:/home/ubuntu/deploy.sh
-        
+            
       # ✅ SSH into EC2 and deploy app
       - name: SSH into EC2 and deploy app
         uses: appleboy/ssh-action@v1.0.3
