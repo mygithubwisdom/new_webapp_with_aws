@@ -72,7 +72,7 @@ jobs:
           mkdir -p /home/runner/.ssh 
           printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > /home/runner/.ssh/SSH_PRIVATE_KEY.pem
           chmod 600 /home/runner/.ssh/SSH_PRIVATE_KEY.pem
-          ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${{ env.public_ip }} "sudo apt update && sudo apt -y upgrade"
+          ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${{ env.public_ip }} sudo apt update
       
           # # ✅ Upload deploy script to EC2
       - name: Upload deploy script to EC2
