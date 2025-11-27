@@ -74,24 +74,18 @@ jobs:
           chmod 600 /home/runner/.ssh/SSH_PRIVATE_KEY.pem
           ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${{ env.public_ip }} sudo apt update
       
-          # # ✅ Upload deploy script to EC2
-      - name: Upload deploy script to EC2
-        run: |
-          scp -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem \
-            -o StrictHostKeyChecking=no \
-            ./terraform/scripts/deploy.sh ubuntu@${{ env.public_ip }}:/home/ubuntu/deploy.sh
-            
-      # ✅ SSH into EC2 and deploy app
-      - name: SSH into EC2 and deploy app
-        uses: appleboy/ssh-action@v1.0.3
+          # add before running the deploy script
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          host: ${{ env.public_ip }} 
-          username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: | 
-            echo "Connected to EC2 successfully!"
-            chmod +x /home/ubuntu/deploy.sh
-            bash /home/ubuntu/deploy.sh 
+            node-version: 18
+
+          # # run the deploy script from the runner and pass EC2 host and SSH key path
+      - name: run deploy script from runner
+        run: |
+          chmod +x ./terraform/scripts/deploy.sh
+            ./terraform/scripts/deploy "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
+        working-directory: ./terraform 
 
       # ✅ Verify deployment health
       - name: Verify deployment
