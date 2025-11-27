@@ -84,7 +84,7 @@ jobs:
       - name: run deploy script from runner
         run: |
           chmod +x ./scripts/deploy.sh
-            ./scripts/deploy "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
+            ./scripts/deploy.sh "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
         working-directory: ./terraform    
       
         # ✅ Verify deployment health
