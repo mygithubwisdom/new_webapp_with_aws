@@ -83,10 +83,11 @@ jobs:
           # # run the deploy script from the runner and pass EC2 host and SSH key path
       - name: run deploy script from runner
         run: |
-          chmod +x ./terraform/scripts/deploy.sh
-            ./terraform/scripts/deploy "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
-            
-      # ✅ Verify deployment health
+          chmod +x ./scripts/deploy.sh
+            ./scripts/deploy "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
+        working-directory: ./terraform    
+      
+        # ✅ Verify deployment health
       - name: Verify deployment
         run: |
           echo "Waiting for app to start..."
