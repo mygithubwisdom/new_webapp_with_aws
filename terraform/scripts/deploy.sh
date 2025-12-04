@@ -26,7 +26,7 @@ echo "📤 Copying files to EC2..."
 scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
     index.js package.json package-lock.json \
     ubuntu@"$EC2_HOST":"$APP_DIR"/
-    
+
 #scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r ./* ubuntu@"$EC2_HOST":"$APP_DIR"/
 
 echo "🔄 Restarting application on EC2..."
@@ -36,8 +36,7 @@ ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@"$EC2_HOST" << 'EOF'
   pm2 delete node-app || true
   pm2 start index.js --name node-app
   pm2 save
-  pm2 startup
-EOF
+  EOF
 
 echo "☁️ Uploading static content to S3..."
 
