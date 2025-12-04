@@ -74,7 +74,7 @@ jobs:
           chmod 600 /home/runner/.ssh/SSH_PRIVATE_KEY.pem
           ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${{ env.public_ip }} sudo apt update
       
-          # add before running the deploy script
+         # # add before running the deploy script
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
