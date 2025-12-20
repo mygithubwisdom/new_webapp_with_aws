@@ -113,4 +113,34 @@ variable "SSH_laptop_ip" {
   type        = string
 }
 
+# CloudWatch & Monitoring Variables
+variable "notification_email" {
+  description = "Email address for SNS notifications (leave empty to disable)"
+  type        = string
+  default     = ""
+}
 
+variable "flow_log_retention_days" {
+  description = "Number of days to retain VPC flow logs"
+  type        = number
+  default     = 7
+}
+
+variable "ssh_threshold" {
+  description = "SSH connection threshold for alerts (connections per 5 minutes)"
+  type        = number
+  default     = 10
+}
+
+variable "cpu_low_threshold" {
+  description = "CPU utilization threshold for low CPU alarm"
+  type        = number
+  default     = 20
+}
+
+# Alarm thresholds
+variable "cpu_high_threshold" {
+  description = "CPU utilization threshold for high CPU alarm"
+  type        = number
+  default     = 80
+}

@@ -13,33 +13,69 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    env:
+        AWS_REGION: 'us-east-1'
+
     steps:
+      # Step 1: Get the code
+      # Reason: Pulls your latest code from GitHub so the workflow runs on it.
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Step 2:
       # ✅ Configure AWS credentials via GitHub OIDC
-      - name: Configure AWS credentials
+      # Reason: Allows the workflow to authenticate with AWS securely without storing long-lived credentials. 
+      # It uses OpenID Connect (OIDC) to assume a specified IAM role. It is more secure and manageable.
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::348954428490:role/node-jswebapp_github_pass
-          aws-region: us-east-1
+           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+           aws-region: ${{ env.AWS_REGION }}  
 
-      # ✅ Setup Terraform
+      # Step 3: Install Terraform
+      # ✅ Setup Terraform CLI to run infrastructure commands.
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.5   # or your preferred version
-
+          terraform_version: 1.9.5   # or your preferred version  
         
-      # ✅ Initialize and validate Terraform
-      - name: Terraform Init
-        run: terraform init
+      # Format Terraform code  
+      # Step 4: Format Terraform code
+      - name: Format Terraform files
+        id: fmt_recursive
+        run: terraform fmt -recursive
         working-directory: ./terraform
-
+      
+      - name: Terraform format check
+        id: fmt_check
+        run: terraform fmt -check
+        working-directory: ./terraform
+    
+      # Steps 5: Validate Terraform code      
       - name: Terraform Validate
         run: terraform validate
         working-directory: ./terraform
 
+      # Step 6:
+      # ✅ Security scan with Trivy
+      - name: Run Trivy config scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: config
+          scan-ref: ./terraform
+      # Triva is the newer, bigger tool that does what tfsec did (IaC scanning) plus more (container scanning, secrets scanning, etc.). In your workflow, it will check the Terraform code for insecure configurations. (Think of it as a security guard for both your code and infrastructure.)
+            # - name: Terraform Security Scan
+            #   run: TSec ./terraform this isn't needed because we are using Trivia
+
+      # Step 7:
+      # ✅ Initialize and validate Terraform
+      #  Reason: Downloads required providers (like AWS) and sets up the working directory.
+      # Reason: Validates that the Terraform code is syntactically correct and ready to run.
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ./terraform
+
+      # Step 8:
+      # ✅ Plan infrastructure changes
       - name: Terraform Plan
         run: |
            terraform plan -out=tfplan \
@@ -49,6 +85,7 @@ jobs:
 
         working-directory: ./terraform
 
+      #  Step 9:
       # ✅ Apply infrastructure changes
       - name: Terraform Apply
         run: |
@@ -58,7 +95,9 @@ jobs:
              -var="SSH_laptop_ip=${{ secrets.SSH_LAPTOP_IP }}"
 
         working-directory: ./terraform
-       
+      
+      # Step 10:
+      # ✅ Deploy application to EC2 instance
       - name: Get EC2 public IP
         id: ec2        
         run: |
@@ -66,7 +105,8 @@ jobs:
           echo "public_ip=$IP" >> $GITHUB_ENV
           echo "EC2 Public IP: $IP"
         working-directory: ./terraform  
-
+      
+       # Steps 11:
       - name: Prepare SSH key file and run remote apt update
         run: |
           mkdir -p /home/runner/.ssh 
