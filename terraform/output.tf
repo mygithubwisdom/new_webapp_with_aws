@@ -40,3 +40,16 @@ output "dashboard_name" {
   description = "Name of the CloudWatch dashboard"
   value       = aws_cloudwatch_dashboard.main.dashboard_name
 }
+
+# modules/ec2/outputs.tf
+output "instance_id" {
+  value = aws_instance.example.id
+}
+
+output "private_ip" {
+  value = aws_instance.example.private_ip
+}
+
+output "instance_public_ip" {
+  value = aws_instance.example.public_ip
+}

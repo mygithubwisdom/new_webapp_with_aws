@@ -33,10 +33,10 @@ resource "aws_cloudwatch_dashboard" "main" {
         height = 6
         properties = {
           metrics = [
-            ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.HelloWorld.id],
-            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.HelloWorld.id],
-            ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.HelloWorld.id],
-            ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.HelloWorld.id]
+            ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.example.id],
+            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.example.id],
+            ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.example.id],
+            ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.example.id]
           ]
           view    = "timeSeries"
           stacked = false
@@ -52,9 +52,9 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          query   = "SOURCE '/aws/ec2/${var.project_name}' | fields @timestamp, @message | sort @timestamp desc | limit 20"
-          region  = "us-east-1"
-          title   = "Application Logs"
+          query  = "SOURCE '/aws/ec2/${var.project_name}' | fields @timestamp, @message | sort @timestamp desc | limit 20"
+          region = "us-east-1"
+          title  = "Application Logs"
         }
       }
     ]
@@ -78,7 +78,7 @@ resource "aws_cloudwatch_metric_alarm" "high_cpu" {
 
 
   dimensions = {
-    InstanceId = aws_instance.HelloWorld.id
+    InstanceId = aws_instance.example.id
   }
 
   tags = {
@@ -99,7 +99,7 @@ resource "aws_cloudwatch_metric_alarm" "status_check" {
   alarm_actions       = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
 
   dimensions = {
-    InstanceId = aws_instance.HelloWorld.id
+    InstanceId = aws_instance.example.id
   }
 
   tags = {
@@ -118,13 +118,13 @@ resource "aws_cloudwatch_metric_alarm" "high_response_time" {
   namespace           = "AWS/EC2"
   period              = "300"
   statistic           = "Average"
-  threshold           = "2"  # 2 seconds
+  threshold           = "2" # 2 seconds
   alarm_description   = "This metric monitors application response time"
-  alarm_actions       =  var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
-  ok_actions          =  var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
+  alarm_actions       = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
+  ok_actions          = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
 
   dimensions = {
-    InstanceId = aws_instance.HelloWorld.id
+    InstanceId = aws_instance.example.id
   }
 
   tags = {
@@ -147,7 +147,7 @@ resource "aws_networkmonitor_monitor" "webapp" {
 # Probe to monitor EC2 instance health
 resource "aws_networkmonitor_probe" "ec2_health" {
   monitor_name     = aws_networkmonitor_monitor.webapp.monitor_name
-  destination      = aws_instance.HelloWorld.private_ip
+  destination      = aws_instance.example.private_ip
   destination_port = 3000
   protocol         = "TCP"
   source_arn       = aws_subnet.Publicsubnet.arn
