@@ -47,13 +47,16 @@ jobs:
         id: fmt_check
         run: terraform fmt -check
         working-directory: ./terraform
-    
-      # Steps 5: Validate Terraform code      
-      - name: Terraform Validate
-        run: terraform validate
+
+      # Step 5:
+      # ✅ Initialize and validate Terraform
+      #  Reason: Downloads required providers (like AWS) and sets up the working directory.
+      # Reason: Validates that the Terraform code is syntactically correct and ready to run.
+      - name: Terraform Init
+        run: terraform init
         working-directory: ./terraform
 
-      # Step 6:
+        # Step 6:
       # ✅ Security scan with Trivy
       - name: Run Trivy config scan
         uses: aquasecurity/trivy-action@master
@@ -63,15 +66,12 @@ jobs:
       # Triva is the newer, bigger tool that does what tfsec did (IaC scanning) plus more (container scanning, secrets scanning, etc.). In your workflow, it will check the Terraform code for insecure configurations. (Think of it as a security guard for both your code and infrastructure.)
             # - name: Terraform Security Scan
             #   run: TSec ./terraform this isn't needed because we are using Trivia
-
-      # Step 7:
-      # ✅ Initialize and validate Terraform
-      #  Reason: Downloads required providers (like AWS) and sets up the working directory.
-      # Reason: Validates that the Terraform code is syntactically correct and ready to run.
-      - name: Terraform Init
-        run: terraform init
+    
+      # Steps 7: Validate Terraform code      
+      - name: Terraform Validate
+        run: terraform validate
         working-directory: ./terraform
-
+    
       # Step 8:
       # ✅ Plan infrastructure changes
       - name: Terraform Plan
