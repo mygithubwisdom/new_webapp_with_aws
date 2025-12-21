@@ -23,10 +23,11 @@ jobs:
       # ✅ Configure AWS credentials via GitHub OIDC
       # Reason: Allows the workflow to authenticate with AWS securely without storing long-lived credentials. 
       # It uses OpenID Connect (OIDC) to assume a specified IAM role. It is more secure and manageable.
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
            role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-           aws-region: 'us-east-1' 
+           aws-region: us-east-1 
 
       # Step 3: Install Terraform
       # ✅ Setup Terraform CLI to run infrastructure commands.
