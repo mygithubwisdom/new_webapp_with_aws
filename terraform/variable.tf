@@ -7,7 +7,7 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
-  default     = "Terraform AWS webapp-Setup"
+  default     = "terraform-aws-webapp-setup"
 }
 
 variable "vpc_name" {

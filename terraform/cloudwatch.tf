@@ -206,13 +206,14 @@ resource "aws_iam_role_policy" "vpc_flow_logs" {
 
 # CloudWatch Log Group for VPC Flow Logs
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
-  name              = "/aws/vpc/flow-logs/${var.project_name}"
+  name              = "/aws/vpc/flow-logs/Terraform-AWS-webapp-Setup"
   retention_in_days = 7
 
   tags = {
-    Name = "${var.project_name}-vpc-flow-logs"
+    Name = "Terraform-AWS-webapp-Setup-vpc-flow-logs"
   }
 }
+
 
 # VPC Flow Log
 resource "aws_flow_log" "main" {
