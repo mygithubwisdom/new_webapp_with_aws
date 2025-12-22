@@ -130,7 +130,8 @@ jobs:
         run: |
           echo "Waiting for app to start..."
           sleep 15
-          curl -f http://${{ secrets.EC2_HOST }}:3000/health || exit 1
+          # Use the public IP we just fetched, not a separate secret
+          curl -f http://${{ env.public_ip }}:3000/health || exit 1
 
       # ✅ Notify result
       - name: Notify deployment status
