@@ -134,7 +134,7 @@ resource "aws_network_acl_rule" "PublicInboundSSH" {
   rule_action    = "allow"
   egress         = false
   cidr_block     = var.allowed_ssh_cidr # use the allowed SSH CIDR variable (e.g. your-ip/32)
-  from_port      = var.ssh_port
+  from_port      = var.ssh_ports 
   to_port        = var.ssh_port
 }
 
@@ -234,6 +234,15 @@ resource "aws_security_group" "app_server" {
     to_port         = 3000
     protocol        = "tcp"
     security_groups = [aws_security_group.ec2.id]
+  }
+
+  # TEMP: allow CI runners (public) to reach the Node app on 3000
+  ingress {
+    description = "CI healthcheck to Node app"
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
