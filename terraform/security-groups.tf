@@ -134,7 +134,7 @@ resource "aws_network_acl_rule" "PublicInboundSSH" {
   rule_action    = "allow"
   egress         = false
   cidr_block     = var.allowed_ssh_cidr # use the allowed SSH CIDR variable (e.g. your-ip/32)
-  from_port      = var.ssh_ports 
+  from_port      = var.ssh_port
   to_port        = var.ssh_port
 }
 
