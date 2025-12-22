@@ -150,6 +150,18 @@ resource "aws_network_acl_rule" "PublicInboundNodeApp" {
   to_port        = 3000
 }
 
+# NACL Outbound rule to allow the server to respond to requests
+resource "aws_network_acl_rule" "PublicOutboundReply" {
+  network_acl_id = aws_network_acl.PublicSubnetNACL.id
+  rule_number    = 140
+  protocol       = "tcp"
+  rule_action    = "allow"
+  egress         = true   # This makes it an OUTBOUND rule
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 1024
+  to_port        = 65535  # Ephemeral port range
+}
+
 # Allow all outbound traffic
 resource "aws_network_acl_rule" "PublicOutbound" {
   network_acl_id = aws_network_acl.PublicSubnetNACL.id
