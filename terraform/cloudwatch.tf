@@ -1,9 +1,46 @@
 # Data source to get current region
 data "aws_region" "current" {}
 
+# KMS Key for SNS encryption
+resource "aws_kms_key" "sns" {
+  description             = "KMS key for SNS topic encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Name        = "${var.project_name}-sns-kms-key"
+    Environment = var.environment
+  }
+}
+
+# KMS Key Alias for SNS
+resource "aws_kms_alias" "sns" {
+  name          = "alias/${var.project_name}-sns"
+  target_key_id = aws_kms_key.sns.key_id
+}
+
+# KMS Key for CloudWatch Logs encryption
+resource "aws_kms_key" "cloudwatch_logs" {
+  description             = "KMS key for CloudWatch Logs encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = {
+    Name        = "${var.project_name}-cloudwatch-logs-kms-key"
+    Environment = var.environment
+  }
+}
+
+# KMS Key Alias for CloudWatch Logs
+resource "aws_kms_alias" "cloudwatch_logs" {
+  name          = "alias/${var.project_name}-cloudwatch-logs"
+  target_key_id = aws_kms_key.cloudwatch_logs.key_id
+}
+
 # SNS Topic for notifications
 resource "aws_sns_topic" "alerts" {
-  name = "${var.environment}-${var.project_name}-alerts"
+  name              = "${var.environment}-${var.project_name}-alerts"
+  kms_master_key_id = aws_kms_key.sns.arn
 
   tags = {
     Name        = "${var.environment}-${var.project_name}-alerts"
@@ -208,9 +245,22 @@ resource "aws_iam_role_policy" "vpc_flow_logs" {
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   name              = "/aws/vpc/flow-logs/Terraform-AWS-webapp-Setup"
   retention_in_days = 7
+  kms_key_id        = aws_kms_key.cloudwatch_logs.arn
 
   tags = {
     Name = "Terraform-AWS-webapp-Setup-vpc-flow-logs"
+  }
+}
+
+# CloudWatch Log Group for Webapp Logs
+resource "aws_cloudwatch_log_group" "webapp_logs" {
+  name              = "/aws/ec2/terraform-aws-webapp-setup"
+  retention_in_days = 7
+  kms_key_id        = aws_kms_key.cloudwatch_logs.arn
+
+  tags = {
+    Name        = "${var.project_name}-webapp-logs"
+    Environment = var.environment
   }
 }
 

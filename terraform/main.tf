@@ -143,6 +143,17 @@ resource "aws_instance" "example" {
 
   key_name = var.key_pair_name
 
+  # Enable IMDSv2 (Instance Metadata Service Version 2) with required tokens
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  # Encrypt root block device
+  root_block_device {
+    encrypted = true
+  }
+
   tags = {
     Name = "HelloWorld" //app-server or web-server
   }

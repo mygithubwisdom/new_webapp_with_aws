@@ -15,11 +15,48 @@ resource "aws_security_group" "bastion" {
     cidr_blocks = [var.SSH_laptop_ip] # Example: "203.0.113.45/32"
   }
 
+  # HTTPS outbound for package updates and API calls
   egress {
-    description = "All outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS outbound"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTP outbound for package updates
+  egress {
+    description = "HTTP outbound"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # DNS outbound
+  egress {
+    description = "DNS outbound"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # DNS outbound TCP (for large responses)
+  egress {
+    description = "DNS outbound TCP"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Ephemeral ports for return traffic
+  egress {
+    description = "Ephemeral ports for return traffic"
+    from_port   = 1024
+    to_port     = 65535
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -36,13 +73,13 @@ resource "aws_security_group" "ec2" {
   description = "Security group for EC2 instance"
   vpc_id      = aws_vpc.main-webapp.id
 
-  # SSH from Bastion Host ONLY
+  # SSH from allowed CIDR only
   ingress {
-    description = "SSH from Bastion"
+    description = "SSH from allowed CIDR"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # TEMP open
+    cidr_blocks = [var.allowed_ssh_cidr]
   }
 
   # HTTP from YOUR LAPTOP (for testing)
@@ -81,12 +118,48 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # All other Outbound traffic
+  # HTTPS outbound for package updates and API calls
   egress {
-    description = "All outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS outbound"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTP outbound for package updates
+  egress {
+    description = "HTTP outbound"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # DNS outbound
+  egress {
+    description = "DNS outbound"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # DNS outbound TCP (for large responses)
+  egress {
+    description = "DNS outbound TCP"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Ephemeral ports for return traffic
+  egress {
+    description = "Ephemeral ports for return traffic"
+    from_port   = 1024
+    to_port     = 65535
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -162,14 +235,52 @@ resource "aws_network_acl_rule" "PublicOutboundReply" {
   to_port        = 65535  # Ephemeral port range
 }
 
-# Allow all outbound traffic
-resource "aws_network_acl_rule" "PublicOutbound" {
+# Allow HTTPS outbound
+resource "aws_network_acl_rule" "PublicOutboundHTTPS" {
   network_acl_id = aws_network_acl.PublicSubnetNACL.id
   rule_number    = 200
-  protocol       = "-1"
+  protocol       = "tcp"
   rule_action    = "allow"
   egress         = true
   cidr_block     = "0.0.0.0/0"
+  from_port      = 443
+  to_port        = 443
+}
+
+# Allow HTTP outbound
+resource "aws_network_acl_rule" "PublicOutboundHTTP" {
+  network_acl_id = aws_network_acl.PublicSubnetNACL.id
+  rule_number    = 201
+  protocol       = "tcp"
+  rule_action    = "allow"
+  egress         = true
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 80
+  to_port        = 80
+}
+
+# Allow DNS outbound (UDP)
+resource "aws_network_acl_rule" "PublicOutboundDNSUDP" {
+  network_acl_id = aws_network_acl.PublicSubnetNACL.id
+  rule_number    = 202
+  protocol       = "udp"
+  rule_action    = "allow"
+  egress         = true
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 53
+  to_port        = 53
+}
+
+# Allow DNS outbound (TCP)
+resource "aws_network_acl_rule" "PublicOutboundDNSTCP" {
+  network_acl_id = aws_network_acl.PublicSubnetNACL.id
+  rule_number    = 203
+  protocol       = "tcp"
+  rule_action    = "allow"
+  egress         = true
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 53
+  to_port        = 53
 }
 
 # Create a NACL for the Private Subnet
@@ -201,14 +312,52 @@ resource "aws_network_acl_rule" "PrivateOutboundToPublic" {
   to_port        = 65535
 }
 
-# Allow outbound traffic to the internet
-resource "aws_network_acl_rule" "PrivateOutboundToInternet" {
+# Allow HTTPS outbound to internet
+resource "aws_network_acl_rule" "PrivateOutboundToInternetHTTPS" {
   network_acl_id = aws_network_acl.PrivateSubnetNACL.id
   rule_number    = 210
-  protocol       = "-1"
+  protocol       = "tcp"
   rule_action    = "allow"
   egress         = true
   cidr_block     = "0.0.0.0/0"
+  from_port      = 443
+  to_port        = 443
+}
+
+# Allow HTTP outbound to internet
+resource "aws_network_acl_rule" "PrivateOutboundToInternetHTTP" {
+  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
+  rule_number    = 211
+  protocol       = "tcp"
+  rule_action    = "allow"
+  egress         = true
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 80
+  to_port        = 80
+}
+
+# Allow DNS outbound to internet (UDP)
+resource "aws_network_acl_rule" "PrivateOutboundToInternetDNSUDP" {
+  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
+  rule_number    = 212
+  protocol       = "udp"
+  rule_action    = "allow"
+  egress         = true
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 53
+  to_port        = 53
+}
+
+# Allow DNS outbound to internet (TCP)
+resource "aws_network_acl_rule" "PrivateOutboundToInternetDNSTCP" {
+  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
+  rule_number    = 213
+  protocol       = "tcp"
+  rule_action    = "allow"
+  egress         = true
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 53
+  to_port        = 53
 }
 
 // 3. Security Group (Private Subnet)
@@ -245,11 +394,48 @@ resource "aws_security_group" "app_server" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  # HTTPS outbound for package updates and API calls
   egress {
-    description = "All outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS outbound"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTP outbound for package updates
+  egress {
+    description = "HTTP outbound"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # DNS outbound
+  egress {
+    description = "DNS outbound"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # DNS outbound TCP (for large responses)
+  egress {
+    description = "DNS outbound TCP"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Ephemeral ports for return traffic
+  egress {
+    description = "Ephemeral ports for return traffic"
+    from_port   = 1024
+    to_port     = 65535
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
