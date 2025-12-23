@@ -229,10 +229,10 @@ resource "aws_network_acl_rule" "PublicOutboundReply" {
   rule_number    = 140
   protocol       = "tcp"
   rule_action    = "allow"
-  egress         = true   # This makes it an OUTBOUND rule
+  egress         = true # This makes it an OUTBOUND rule
   cidr_block     = "0.0.0.0/0"
   from_port      = 1024
-  to_port        = 65535  # Ephemeral port range
+  to_port        = 65535 # Ephemeral port range
 }
 
 # Allow HTTPS outbound
