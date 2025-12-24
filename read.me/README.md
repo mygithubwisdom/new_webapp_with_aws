@@ -167,7 +167,7 @@ Before you begin, ensure you have the following installed and configured:
    # Save the .pem file securely
    
    # Or via AWS CLI:
-   aws ec2 create-key-pair --key-name ubuntutask --query 'KeyMaterial' --output text > ubuntutask.pem
+   aws ec2 create-key-pair --key-name (keyname) --query 'KeyMaterial' --output text > keyname.pem
    chmod 400 ***.pem  # Linux/Mac
    ```
 
@@ -186,7 +186,7 @@ Before you begin, ensure you have the following installed and configured:
 
 ```bash
 git clone <your-repository-url>
-cd new_webapp_with_aws
+cd new_webapp_with_aws #local repo folder
 ```
 
 ### Step 2: Configure Terraform Variables
@@ -197,25 +197,25 @@ Create a `terraform.tfvars` file in the `terraform/` directory:
 cd terraform
 ```
 
-Create `terraform.tfvars`:
+Create `terraform.tfvars`: # optional
 
 ```hcl
 # AWS Configuration
-aws_region = "us-east-1"
+aws_region = "var.yourchoice"
 project_name = "Terraform AWS webapp-Setup"
 
 # Network Configuration
 vpc_cidr = "10.0.0.0/16"
 public_subnet_cidr = "10.0.1.0/24"
 private_subnet_cidr = "10.0.2.0/24"
-availability_zones = ["us-east-1a"]
+availability_zones = ["yourchoice"]
 
 # EC2 Configuration
-key_pair_name = "ubuntutask"  # Your EC2 key pair name
+key_pair_name = "var.keypair_name"  # Your EC2 key pair name
 ec2_instance_type = "t3.micro"
 
 # Security Configuration
-SSH_laptop_ip = "YOUR_PUBLIC_IP/32"  # e.g., "203.0.113.45/32"
+SSH_laptop_ip = "YOUR_PUBLIC_IP/32"  # e.g., "203.0.113.45/32" # best practice
 allowed_ssh_cidr = "YOUR_PUBLIC_IP/32"
 
 # Environment
@@ -270,7 +270,10 @@ terraform output public_ip
 
 Save this IP address for deployment.
 
-### Step 7: Test SSH Connection
+### Step 7: Test SSH Connection 
+
+## change directory to ~/.ssh for ubuntu/linux/git bash 
+ cd ~/.ssh # save SSH_PRIVATE_KEY inside .ssh folder for permission 
 
 ```bash
 # Replace with your key path and public IP
@@ -405,7 +408,7 @@ The EC2 instance is configured to send logs to CloudWatch:
 
 1. **View Logs**:
    - AWS Console → CloudWatch → Log groups
-   - Log group: `/aws/ec2/Terraform AWS webapp-Setup`
+   - Log group: `/aws/ec2/*****`
    - Log stream: `{instance_id}`
 
 2. **View Metrics**:
