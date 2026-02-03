@@ -123,7 +123,7 @@ jobs:
     
          # Get security group ID
          SG_ID=$(aws ec2 describe-instances \
-           -instance-ids ${{ steps.terraform.outputs.instance_id }} \
+           --instance-ids ${{ steps.terraform.outputs.instance_id }} \
            --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
            --output text)
     
