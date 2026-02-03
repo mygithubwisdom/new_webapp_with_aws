@@ -115,6 +115,26 @@ jobs:
           echo "public_ip=$IP" >> $GITHUB_ENV
           echo "EC2 Public IP: $IP"
         working-directory: ./terraform  
+
+      - name: Get GitHub Runner IP and whitelist it
+        run: |
+         RUNNER_IP=$(curl -s https://api.ipify.org)
+         echo "Runner IP: $RUNNER_IP"
+    
+         # Get security group ID
+         SG_ID=$(aws ec2 describe-instances \
+           -instance-ids ${{ steps.terraform.outputs.instance_id }} \
+           --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
+           --output text)
+    
+         # Add runner IP to security group temporarily
+          aws ec2 authorize-security-group-ingress \
+          --group-id $SG_ID \
+          --protocol tcp \
+          --port 22 \
+          --cidr ${RUNNER_IP}/32
+    
+         echo "Added $RUNNER_IP to security group $SG_ID"
       
        # Steps 11:
       - name: Prepare SSH key file and run remote apt update
@@ -124,6 +144,22 @@ jobs:
           chmod 600 /home/runner/.ssh/SSH_PRIVATE_KEY.pem
           ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${{ env.public_ip }} sudo apt update
       
+      - name: Remove GitHub Runner IP from security group
+        if: always()
+        run: |
+          RUNNER_IP=$(curl -s https://api.ipify.org)
+           SG_ID=$(aws ec2 describe-instances \
+           --instance-ids ${{ steps.terraform.outputs.instance_id }} \
+           --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
+           --output text)
+    
+           aws ec2 revoke-security-group-ingress \
+             --group-id $SG_ID \
+             --protocol tcp \
+             --port 22 \
+             --cidr ${RUNNER_IP}/32 || true
+        
+        # Steps 12:
          # # add before running the deploy script
       - name: Setup Node.js
         uses: actions/setup-node@v4
