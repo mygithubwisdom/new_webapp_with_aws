@@ -79,7 +79,8 @@ jobs:
            terraform plan -out=tfplan \
              -var="ami_id=ami-0360c520857e3138f" \
              -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}" \
-             -var="SSH_laptop_ip=${{ secrets.SSH_LAPTOP_IP }}"
+             -var="SSH_laptop_ip=${{ secrets.SSH_LAPTOP_IP }}" \
+             -var="allowed_ssh_cidr=${{ secrets.ALLOWED_SSH_CIDR }}"
 
         working-directory: ./terraform
 
@@ -90,7 +91,8 @@ jobs:
           terraform apply -auto-approve \
              -var="ami_id=ami-0360c520857e3138f" \
              -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}" \
-             -var="SSH_laptop_ip=${{ secrets.SSH_LAPTOP_IP }}"
+             -var="SSH_laptop_ip=${{ secrets.SSH_LAPTOP_IP }}" \
+             -var="allowed_ssh_cidr=${{ secrets.ALLOWED_SSH_CIDR }}"
 
         working-directory: ./terraform
       

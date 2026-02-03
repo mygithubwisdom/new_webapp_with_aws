@@ -22,7 +22,7 @@ variable "ami_id" {
 variable "key_pair_name" {
   description = "EC2 key pair name for SSH"
   type        = string
-  default     = "ubuntutask"
+  default     = "ubuntutask" #replace with your key pair name
 }
 
 variable "ec2_instance_type" {
@@ -69,7 +69,6 @@ variable "map_public_ip_on_launch" {
 variable "allowed_ssh_cidr" {
   description = "CIDR block allowed for SSH access"
   type        = string
-  default     = "0.0.0.0/0"
 }
 
 variable "public_nacl_name" {

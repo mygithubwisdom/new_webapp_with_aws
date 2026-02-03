@@ -283,11 +283,11 @@ resource "aws_iam_role_policy" "vpc_flow_logs" {
 # CloudWatch Log Group for VPC Flow Logs
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   name              = "/aws/vpc/flow-logs/Terraform-AWS-webapp-Setup"
-  retention_in_days = 7
+  retention_in_days = 30
   kms_key_id        = aws_kms_key.cloudwatch_logs.arn
 
-  tags = {
-    Name = "Terraform-AWS-webapp-Setup-vpc-flow-logs"
+  lifecycle {
+    prevent_destroy = true
   }
 }
 

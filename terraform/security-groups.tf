@@ -39,7 +39,7 @@ resource "aws_security_group" "bastion" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] #5 
   }
 
   # DNS outbound to VPC DNS resolver (restricted to VPC DNS)
@@ -78,7 +78,7 @@ resource "aws_security_group" "bastion" {
   tags = {
     Name = "${var.project_name}-bastion-sg"
   }
-}
+} #4
 
 # 2. Web Server Security Group
 
@@ -108,14 +108,14 @@ resource "aws_security_group" "ec2" {
     cidr_blocks = [var.SSH_laptop_ip] # Only your IP
   }
 
-  # HTTP from INTERNET (for public access)
-  ingress {
-    description = "HTTP from internet"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Public access
-  }
+  # # HTTP from INTERNET (for public access)
+  # ingress {
+  #   description = "HTTP from internet"
+  #   from_port   = 80
+  #   to_port     = 80
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"] # Public access
+  # }
 
   # Https access Node.js app port (development/testing)
   ingress {
@@ -123,7 +123,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] //[var.SSH_laptop_ip]  # Only your IP
+    cidr_blocks = [var.SSH_laptop_ip] # Ensure this variable is NOT 0.0.0.0/0
   }
 
   # HTTPS (for production)
@@ -192,7 +192,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 1024
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] #9   via security-groups.tf:86-201 (aws_security_group.ec2)
   }
 
   tags = {
@@ -240,7 +240,7 @@ resource "aws_network_acl_rule" "PublicInboundSSH" {
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
-  cidr_block     = var.allowed_ssh_cidr # use the allowed SSH CIDR variable (e.g. your-ip/32)
+  cidr_block     = var.allowed_ssh_cidr # use the allowed SSH CIDR variable (e.g. your-ip/32) 
   from_port      = var.ssh_port
   to_port        = var.ssh_port
 }
@@ -252,7 +252,7 @@ resource "aws_network_acl_rule" "PublicInboundNodeApp" {
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
-  cidr_block     = "0.0.0.0/0"
+  cidr_block     = var.allowed_ssh_cidr
   from_port      = 3000
   to_port        = 3000
 }
@@ -331,6 +331,19 @@ resource "aws_network_acl_rule" "PrivateInboundFromPublic" {
   egress         = false
   cidr_block     = var.public_subnet_cidr
   from_port      = 0
+  to_port        = 65535
+}
+
+# Allow Inbound Ephemeral ports from the Internet 
+# (Required for the replies to your HTTPS/HTTP outbound calls)
+resource "aws_network_acl_rule" "PrivateInboundInternetReply" {
+  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
+  rule_number    = 111 # Between your public trust and your deny all
+  protocol       = "tcp"
+  rule_action    = "allow"
+  egress         = false
+  cidr_block     = "0.0.0.0/0"
+  from_port      = 1024
   to_port        = 65535
 }
 
@@ -425,7 +438,7 @@ resource "aws_security_group" "app_server" {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [var.SSH_laptop_ip] #["0.0.0.0/0"]
   }
 
   # HTTPS outbound for package updates and API calls
@@ -452,7 +465,7 @@ resource "aws_security_group" "app_server" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] #Consider disabling after setup
   }
 
   # DNS outbound to VPC DNS resolver (restricted to VPC DNS)
@@ -471,21 +484,6 @@ resource "aws_security_group" "app_server" {
     to_port     = 53
     protocol    = "tcp"
     cidr_blocks = ["169.254.169.253/32"] # VPC DNS resolver IP
-  }
-
-  # Ephemeral ports for return traffic
-  # SECURITY NOTE: 0.0.0.0/0 is REQUIRED and UNAVOIDABLE because:
-  # - When initiating connections, the OS uses ephemeral ports (1024-65535)
-  # - Return traffic can come from ANY IP address that was contacted
-  # - This is how TCP/IP works - you cannot predict the source IP of responses
-  # - Without this rule, outbound connections would fail
-  # - This is standard practice and required for any server making outbound connections
-  egress {
-    description = "Ephemeral ports for return traffic (required for outbound connections)"
-    from_port   = 1024
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
   }
 
   tags = {
