@@ -183,7 +183,22 @@ resource "aws_security_group" "ec2" {
     from_port   = 1024
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #9
+    cidr_blocks = ["0.0.0.0/0"] 
+  }
+
+  # SSH from allowed CIDR only
+  ingress {
+    description = "SSH from allowed CIDR"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [
+    var.allowed_ssh_cidr,
+    # GitHub Actions IP ranges (update periodically from https://api.github.com/meta)
+    "4.175.114.51/32",
+    "20.102.39.205/32",
+    # Add more GitHub IPs as needed
+   ] 
   }
 
   tags = {
