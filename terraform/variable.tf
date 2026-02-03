@@ -69,7 +69,7 @@ variable "map_public_ip_on_launch" {
 variable "allowed_ssh_cidr" {
   description = "CIDR block allowed for SSH access"
   type        = string
-  default     = "154.118.15.199/32"
+  default     = "154.120.112.130/32"
 
   validation {
     condition     = can(cidrhost(var.allowed_ssh_cidr, 0))
@@ -115,9 +115,9 @@ variable "https_port" {
 }
 
 variable "SSH_laptop_ip" {
-  description = "The public IP address of your laptop in CIDR notation (e.g., 102.89.15.10/32)"
+  description = "The public IP address of your laptop in CIDR notation"
   type        = string
-  default     = "154.118.15.199/32"
+  default     = "154.120.112.130/32"
 
   validation {
     condition     = can(cidrhost(var.SSH_laptop_ip, 0))
@@ -135,7 +135,7 @@ variable "notification_email" {
 variable "flow_log_retention_days" {
   description = "Number of days to retain VPC flow logs"
   type        = number
-  default     = 7
+  default     = 30
 }
 
 variable "ssh_threshold" {

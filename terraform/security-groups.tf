@@ -114,7 +114,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 3000
     to_port     = 3000
     protocol    = "tcp"
-    cidr_blocks = [var.SSH_laptop_ip] # Ensure this variable is NOT 0.0.0.0/0
+    cidr_blocks = [var.SSH_laptop_ip]
   }
 
   # HTTPS (for production)

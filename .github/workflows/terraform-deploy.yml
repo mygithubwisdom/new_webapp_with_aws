@@ -71,6 +71,16 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
         working-directory: ./terraform
+
+      # ADD DEBUG STEP HERE - BEFORE TERRAFORM PLAN
+      - name: Debug Secret Values
+        run: |
+         echo "SSH_LAPTOP_IP length: ${#SSH_IP}"
+         echo "First char: '${SSH_IP:0:1}'"
+         echo "Last char: '${SSH_IP: -1}'"
+         echo "Full value (masked): $SSH_IP"
+        env:
+          SSH_IP: ${{ secrets.SSH_LAPTOP_IP }}
     
       # Step 8:
       # ✅ Plan infrastructure changes
