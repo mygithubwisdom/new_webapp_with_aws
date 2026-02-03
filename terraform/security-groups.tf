@@ -12,7 +12,7 @@ resource "aws_security_group" "bastion" {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.SSH_laptop_ip] # Example: "203.0.113.45/32"
+    cidr_blocks = [var.SSH_laptop_ip] 
   }
 
   # HTTPS outbound for package updates and API calls
@@ -78,7 +78,7 @@ resource "aws_security_group" "bastion" {
   tags = {
     Name = "${var.project_name}-bastion-sg"
   }
-} #4
+} 
 
 # 2. Web Server Security Group
 
