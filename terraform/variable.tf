@@ -69,7 +69,14 @@ variable "map_public_ip_on_launch" {
 variable "allowed_ssh_cidr" {
   description = "CIDR block allowed for SSH access"
   type        = string
+  default     = "154.118.15.199/32"
+
+  validation {
+    condition     = can(cidrhost(var.allowed_ssh_cidr, 0))
+    error_message = "allowed_ssh_cidr must be a valid CIDR (e.g. 203.0.113.10/32)."
+  }
 }
+
 
 variable "public_nacl_name" {
   description = "Name for the public subnet NACL"
@@ -110,6 +117,12 @@ variable "https_port" {
 variable "SSH_laptop_ip" {
   description = "The public IP address of your laptop in CIDR notation (e.g., 102.89.15.10/32)"
   type        = string
+  default     = "154.118.15.199/32"
+
+  validation {
+    condition     = can(cidrhost(var.SSH_laptop_ip, 0))
+    error_message = "SSH_laptop_ip must be a valid CIDR (e.g. 203.0.113.10/32)."
+  }
 }
 
 # CloudWatch & Monitoring Variables

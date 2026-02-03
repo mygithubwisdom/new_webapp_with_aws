@@ -39,7 +39,7 @@ resource "aws_security_group" "bastion" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #5 
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
   # DNS outbound to VPC DNS resolver (restricted to VPC DNS)
@@ -192,7 +192,7 @@ resource "aws_security_group" "ec2" {
     from_port   = 1024
     to_port     = 65535
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #9   via security-groups.tf:86-201 (aws_security_group.ec2)
+    cidr_blocks = ["0.0.0.0/0"] #9
   }
 
   tags = {
