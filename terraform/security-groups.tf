@@ -254,7 +254,7 @@ resource "aws_network_acl_rule" "PublicInboundSSH" {
 # NACL rules for public subnet (Added Rule)
 resource "aws_network_acl_rule" "PublicInboundNodeApp" {
   network_acl_id = aws_network_acl.PublicSubnetNACL.id
-  rule_number    = 130 # Next rule number
+  rule_number    = 135 # Next rule number
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
@@ -331,7 +331,7 @@ resource "aws_network_acl" "PrivateSubnetNACL" {
 # Allow inbound traffic from the public subnet
 resource "aws_network_acl_rule" "PrivateInboundFromPublic" {
   network_acl_id = aws_network_acl.PrivateSubnetNACL.id
-  rule_number    = 100
+  rule_number    = 115
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
