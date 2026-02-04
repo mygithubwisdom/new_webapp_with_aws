@@ -199,7 +199,7 @@ resource "aws_security_group" "ec2" {
       "20.102.39.205/32",
       # Add more GitHub IPs as needed
     ]
- }
+  }
 
   tags = {
     Name = "${var.project_name}-ec2-sg"
