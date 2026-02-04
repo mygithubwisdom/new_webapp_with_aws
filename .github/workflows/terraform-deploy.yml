@@ -105,17 +105,24 @@ jobs:
              -var="allowed_ssh_cidr=${{ secrets.ALLOWED_SSH_CIDR }}"
 
         working-directory: ./terraform
-      
+        
       # Step 10:
       # ✅ Deploy application to EC2 instance
       - name: Get EC2 public IP
         id: ec2        
-        run: |
-          IP=$(terraform output -raw public_ip)
-          echo "public_ip=$IP" >> $GITHUB_ENV
-          echo "EC2 Public IP: $IP"
+        run: |          
+          INSTANCE_ID=$(terraform output -raw instance_id)
+          PUBLIC_IP=$(terraform output -raw public_ip)
+
+          echo "instance_id=$INSTANCE_ID" >> $GITHUB_ENV
+          echo "public_ip=$PUBLIC_IP" >> $GITHUB_ENV
+
+          echo "EC2 Instance ID: $INSTANCE_ID"
+          echo "EC2 Public IP: $PUBLIC_IP"
+        
         working-directory: ./terraform  
 
+        # Steps 11:
       - name: Get GitHub Runner IP and whitelist it
         run: |
          RUNNER_IP=$(curl -s https://api.ipify.org)
@@ -136,14 +143,29 @@ jobs:
     
          echo "Added $RUNNER_IP to security group $SG_ID"
       
-       # Steps 11:
+       # Steps 12:
       - name: Prepare SSH key file and run remote apt update
         run: |
           mkdir -p /home/runner/.ssh 
           printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > /home/runner/.ssh/SSH_PRIVATE_KEY.pem
           chmod 600 /home/runner/.ssh/SSH_PRIVATE_KEY.pem
           ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${{ env.public_ip }} sudo apt update
+        
+        # Steps 13:
+         # # add before running the deploy script
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+            node-version: 18
+
+          # # run the deploy script from the runner and pass EC2 host and SSH key path
+      - name: run deploy script from runner
+        run: |
+          chmod +x ./scripts/deploy.sh
+            ./scripts/deploy.sh "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
+        working-directory: ./terraform    
       
+         #steps 14:
       - name: Remove GitHub Runner IP from security group
         if: always()
         run: |
@@ -158,21 +180,7 @@ jobs:
              --protocol tcp \
              --port 22 \
              --cidr ${RUNNER_IP}/32 || true
-        
-        # Steps 12:
-         # # add before running the deploy script
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-            node-version: 18
 
-          # # run the deploy script from the runner and pass EC2 host and SSH key path
-      - name: run deploy script from runner
-        run: |
-          chmod +x ./scripts/deploy.sh
-            ./scripts/deploy.sh "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
-        working-directory: ./terraform    
-      
         # ✅ Verify deployment health
       - name: Verify deployment
         run: |
