@@ -7,6 +7,8 @@ node_modules/
 *.tfstate.*
 .terraform.lock.hcl
 *.tfvars
+*tfplan
+*tfplan.out 
 
 # Environment variables
 .env
