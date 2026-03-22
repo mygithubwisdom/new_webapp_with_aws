@@ -5,158 +5,121 @@ terraform {
       version = "~> 6.0"
     }
   }
-
   required_version = ">= 1.4"
 }
 
-# Configure the AWS Provider
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
-# VPC
+
+# VPC & GATEWAYS
+# ==========================================
+
 resource "aws_vpc" "main-webapp" {
   cidr_block           = var.vpc_cidr
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  tags = {
-    Name = "${var.project_name}-vpc"
-  }
+  tags = { Name = "${var.project_name}-vpc" }
 }
 
-# Internet Gateway
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main-webapp.id
-
-  tags = {
-    Name = "${var.project_name}-igw"
-  }
+  tags   = { Name = "${var.project_name}-igw" }
 }
 
 
-# Subnets
+# SUBNETS
+# Public Subnets (For ALB and NAT Gateway)
+
 resource "aws_subnet" "Publicsubnet" {
   vpc_id                  = aws_vpc.main-webapp.id
   cidr_block              = var.public_subnet_cidr
   availability_zone       = var.availability_zones[0]
   map_public_ip_on_launch = var.map_public_ip_on_launch
-
-  tags = {
-    Name = "${var.project_name}-public-subnet"
-  }
-
+  tags = { Name = "${var.project_name}-public-subnet-a" }
 }
+
+resource "aws_subnet" "public_subnet_b" {
+  vpc_id                  = aws_vpc.main-webapp.id
+  cidr_block              = var.public_subnet_b_cidr
+  availability_zone       = var.availability_zones[1]
+  map_public_ip_on_launch = var.map_public_ip_on_launch
+  tags = { Name = "${var.project_name}-public-subnet-b" }
+}
+
+# Private Subnets (For App Servers and RDS)
 resource "aws_subnet" "Privatesubnet" {
   vpc_id            = aws_vpc.main-webapp.id
   cidr_block        = var.private_subnet_cidr
   availability_zone = var.availability_zones[0]
-
-  tags = {
-
-    Name = "${var.project_name}-private-subnet"
-  }
+  tags = { Name = "${var.project_name}-private-subnet-a" }
 }
 
+resource "aws_subnet" "private_subnet_b" {
+  vpc_id            = aws_vpc.main-webapp.id
+  cidr_block        = var.private_subnet_b_cidr
+  availability_zone = var.availability_zones[1]
+  tags = { Name = "${var.project_name}-private-subnet-b" }
+}
+
+# ==========================================
+# ROUTING
+# ==========================================
+
+# Public Routing
 resource "aws_route_table" "publicroutetable" {
   vpc_id = aws_vpc.main-webapp.id
-
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.main.id
   }
-
-  tags = {
-    Name = "${var.project_name}-public-rt"
-  }
+  tags = { Name = "${var.project_name}-public-rt" }
 }
 
-# Associate the Public Route Table with the Public Subnet
 resource "aws_route_table_association" "PublicSubnetAssociation" {
   subnet_id      = aws_subnet.Publicsubnet.id
   route_table_id = aws_route_table.publicroutetable.id
 }
 
-# # Elastic IP for NAT Gateway (for private subnet internet access)
-# resource "aws_eip" "nat" {
-#   domain = "vpc"
-
-#   tags = {
-#     Name = "${var.project_name}-nat-eip"
-#   }
-# }
-
-
-# # NAT Gateway
-# resource "aws_nat_gateway" "main" {
-#   allocation_id = aws_eip.nat.id
-#   subnet_id     = aws_subnet.Publicsubnet.id
-
-#   tags = {
-#     Name = "${var.project_name}-nat-gateway"
-#   }
-
-#   depends_on = [aws_internet_gateway.main]
-# }
-
-# Private Route Table
-resource "aws_route_table" "PrivateRouteTable" {
-  vpc_id = aws_vpc.main-webapp.id
-
-  tags = {
-    Name = "${var.project_name}-private-rt"
-  }
+resource "aws_route_table_association" "PublicSubnetBAssociation" {
+  subnet_id      = aws_subnet.public_subnet_b.id
+  route_table_id = aws_route_table.publicroutetable.id
 }
 
-# Associate the Private Route Table with the Private Subnet
+# Private Routing (NAT Gateway)
+resource "aws_eip" "nat" {
+  domain = "vpc"
+  tags   = { Name = "${var.project_name}-nat-eip" }
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.Publicsubnet.id
+  tags          = { Name = "${var.project_name}-nat-gateway" }
+  depends_on    = [aws_internet_gateway.main]
+}
+
+resource "aws_route_table" "PrivateRouteTable" {
+  vpc_id = aws_vpc.main-webapp.id
+  tags   = { Name = "${var.project_name}-private-rt" }
+}
+
+resource "aws_route" "private_to_internet_via_nat" {
+  route_table_id         = aws_route_table.PrivateRouteTable.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.main.id
+}
+
 resource "aws_route_table_association" "PrivateSubnetAssociation" {
   subnet_id      = aws_subnet.Privatesubnet.id
   route_table_id = aws_route_table.PrivateRouteTable.id
 }
 
-
-data "aws_ami" "ubuntu" {
-  most_recent = true
-
-  filter {
-    name   = "name"
-    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
-  }
-
-  filter {
-    name   = "virtualization-type"
-    values = ["hvm"]
-  }
-
-  owners = ["099720109477"] # Canonical
-}
-
-resource "aws_instance" "example" {
-  ami                         = data.aws_ami.ubuntu.id
-  instance_type               = "t3.micro"
-  subnet_id                   = aws_subnet.Publicsubnet.id
-  associate_public_ip_address = true
-
-  vpc_security_group_ids = [
-    aws_security_group.ec2.id
-  ]
-
-  key_name = var.key_pair_name
-
-  # Enable IMDSv2 (Instance Metadata Service Version 2) with required tokens
-  metadata_options {
-    http_endpoint = "enabled"
-    http_tokens   = "required"
-  }
-
-  # Encrypt root block device
-  root_block_device {
-    encrypted = true
-  }
-
-  tags = {
-    Name = "HelloWorld" //app-server or web-server
-  }
+resource "aws_route_table_association" "PrivateSubnetBAssociation" {
+  subnet_id      = aws_subnet.private_subnet_b.id
+  route_table_id = aws_route_table.PrivateRouteTable.id
 }
 
 

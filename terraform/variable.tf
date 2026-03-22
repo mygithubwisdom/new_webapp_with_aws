@@ -1,3 +1,5 @@
+# PROJECT & REGION
+# ==========================================
 variable "aws_region" {
   description = "AWS region"
   type        = string
@@ -10,19 +12,24 @@ variable "project_name" {
   default     = "terraform-aws-webapp-setup"
 }
 
-variable "vpc_name" {
-  description = "VPC name"
+variable "environment" {
+  description = "Deployment environment"
   type        = string
-  default     = "main-webapp"
+  default     = "Production"
 }
+
+# ==========================================
+# COMPUTE (EC2 & ASG)
+
 variable "ami_id" {
   description = "The AMI ID to use for the EC2 instance"
   type        = string
 }
+
 variable "key_pair_name" {
-  description = "EC2 key pair name for SSH"
+  description = "EC2 key pair name (Kept as backup/emergency access)"
   type        = string
-  default     = "ubuntutask" #replace with your key pair name
+  default     = "ubuntutask"
 }
 
 variable "ec2_instance_type" {
@@ -30,10 +37,14 @@ variable "ec2_instance_type" {
   type        = string
   default     = "t3.micro"
 }
-variable "environment" {
-  description = "Deployment environment"
+
+# ==========================================
+# NETWORKING (VPC & SUBNETS)
+
+variable "vpc_name" {
+  description = "VPC name"
   type        = string
-  default     = "Development"
+  default     = "main-webapp"
 }
 
 variable "vpc_cidr" {
@@ -48,10 +59,22 @@ variable "public_subnet_cidr" {
   default     = "10.0.1.0/24"
 }
 
+variable "public_subnet_b_cidr" {
+  description = "CIDR block for the second public subnet"
+  type        = string
+  default     = "10.0.3.0/24"
+}
+
 variable "private_subnet_cidr" {
   description = "CIDR block for the private subnet"
   type        = string
   default     = "10.0.2.0/24"
+}
+
+variable "private_subnet_b_cidr" {
+  description = "CIDR block for the second private subnet"
+  type        = string
+  default     = "10.0.4.0/24"
 }
 
 variable "availability_zones" {
@@ -66,34 +89,8 @@ variable "map_public_ip_on_launch" {
   default     = true
 }
 
-variable "allowed_ssh_cidr" {
-  description = "CIDR block allowed for SSH access"
-  type        = string
-  default     = "197.242.112.93/32"
-
-  validation {
-    condition     = can(cidrhost(var.allowed_ssh_cidr, 0))
-    error_message = "allowed_ssh_cidr must be a valid CIDR (e.g. 203.0.113.10/32)."
-  }
-}
-
-variable "public_nacl_name" {
-  description = "Name for the public subnet NACL"
-  type        = string
-  default     = "PublicSubnetNACL"
-}
-
-variable "private_nacl_name" {
-  description = "Name for the private subnet NACL"
-  type        = string
-  default     = "PrivateSubnetNACL"
-}
-
-variable "ssh_port" {
-  description = "SSH port number"
-  type        = number
-  default     = 22
-}
+# ==========================================
+# PORTS & SECURITY CONFIG
 
 variable "node_app_port" {
   description = "Node.js application port number"
@@ -113,20 +110,80 @@ variable "https_port" {
   default     = 443
 }
 
-variable "SSH_laptop_ip" {
-  description = "The public IP address of your laptop in CIDR notation"
+variable "public_nacl_name" {
+  description = "Name for the public subnet NACL"
   type        = string
-  default     = "197.242.112.93/32"
-
-  validation {
-    condition     = can(cidrhost(var.SSH_laptop_ip, 0))
-    error_message = "SSH_laptop_ip must be a valid CIDR (e.g. 203.0.113.10/32)."
-  }
+  default     = "PublicSubnetNACL"
 }
 
-# CloudWatch & Monitoring Variables
+variable "private_nacl_name" {
+  description = "Name for the private subnet NACL"
+  type        = string
+  default     = "PrivateSubnetNACL"
+}
+
+# ==========================================
+# DATABASE (RDS)
+
+variable "db_engine" {
+  description = "Database engine for RDS"
+  type        = string
+  default     = "postgres"
+}
+
+variable "db_engine_version" {
+  description = "Database engine version"
+  type        = string
+  default     = "16.1"
+}
+
+variable "db_instance_class" {
+  description = "RDS instance class"
+  type        = string
+  default     = "db.t3.micro"
+}
+
+variable "db_allocated_storage" {
+  description = "Allocated storage for the RDS instance (in GB)"
+  type        = number
+  default     = 20
+}
+
+variable "db_name" {
+  description = "Initial database name"
+  type        = string
+  default     = "appdb"
+}
+
+variable "db_username" {
+  description = "Master username for the RDS instance"
+  type        = string
+  default     = "appuser"
+}
+
+variable "db_password" {
+  description = "Master password for the RDS instance"
+  type        = string
+  sensitive   = true
+}
+
+variable "db_port" {
+  description = "Database port"
+  type        = number
+  default     = 5432
+}
+
+variable "db_multi_az" {
+  description = "Enable Multi-AZ deployment for RDS"
+  type        = bool
+  default     = false 
+}
+
+# ==========================================
+# MONITORING & COMPLIANCE
+
 variable "notification_email" {
-  description = "Email address for SNS notifications (leave empty to disable)"
+  description = "Email address for SNS notifications"
   type        = string
   default     = ""
 }
@@ -137,21 +194,41 @@ variable "flow_log_retention_days" {
   default     = 30
 }
 
-variable "ssh_threshold" {
-  description = "SSH connection threshold for alerts (connections per 5 minutes)"
-  type        = number
-  default     = 10
-}
-
 variable "cpu_low_threshold" {
   description = "CPU utilization threshold for low CPU alarm"
   type        = number
   default     = 20
 }
 
-# Alarm thresholds
 variable "cpu_high_threshold" {
   description = "CPU utilization threshold for high CPU alarm"
   type        = number
   default     = 80
+}
+
+variable "iam_users_require_mfa" {
+  description = "List of IAM users that require MFA"
+  type        = list(string)
+  default     = []
+}
+
+# ==========================================
+# WAF & SECURITY SERVICES
+
+variable "blocked_countries" {
+  description = "List of country codes to block"
+  type        = list(string)
+  default     = []
+}
+
+variable "waf_rate_limit" {
+  description = "Rate limit per IP (requests per 5 minutes)"
+  type        = number
+  default     = 2000
+}
+
+variable "rds_kms_key_arn" {
+  description = "KMS Key ARN for RDS encryption"
+  type        = string
+  default     = "" 
 }

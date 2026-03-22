@@ -1,54 +1,32 @@
-#!/bin/bash
-set -e
+locals {
+  user_data = <<-EOT
+    #!/bin/bash
+    set -e
+    
+    # 1. System Updates & Node.js 18 Installation
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt-get update
+    sudo apt-get install -y nodejs git awscli
 
-echo "🚀 Starting deployment..."
+    # 2. Setup App Directory
+    sudo mkdir -p /home/ubuntu/app
+    sudo chown -R ubuntu:ubuntu /home/ubuntu/app
+    cd /home/ubuntu/app
 
-# Variables
-EC2_HOST=$1
-SSH_KEY=$2
-APP_DIR="/home/ubuntu/app"
+    # 3. Initial Code Pull (Replace with your Repo URL)
+    git clone https://github.com/Wizzylaface/your-new-app.git .
+    
+    # 4. Install Global Tools
+    sudo npm install -g pm2
 
-# Validation
-if [ -z "$EC2_HOST" ] || [ -z "$SSH_KEY" ]; then
-  echo "❌ Usage: ./deploy.sh <EC2_HOST> <SSH_KEY_PATH>"
-  exit 1
-fi
-
-echo "🔑 Testing SSH connection..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@"$EC2_HOST" "echo '✅ Connected to EC2'"
-
-echo "📦 Installing dependencies locally..."
-cd app
-npm ci --production
-
-echo "📤 Copying files to EC2..."
-# Copy only necessary files (exclude node_modules)
-scp -i "$SSH_KEY" -o StrictHostKeyChecking=no \
-    index.js package.json package-lock.json \
-    ubuntu@"$EC2_HOST":"$APP_DIR"/
-
-#scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -r ./* ubuntu@"$EC2_HOST":"$APP_DIR"/
-
-echo "🔄 Restarting application on EC2..."
-ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no ubuntu@"$EC2_HOST" << 'EOF'
-  cd /home/ubuntu/app
-  npm install --production
-  pm2 delete node-app || true
-  pm2 start index.js --name node-app
-  pm2 save
-  EOF
-
-echo "☁️ Uploading static content to S3..."
-
-# Bucket and prefix
-S3_BUCKET="terraform-aws-webapp-setup-static-content-4ec3ab3c"
-S3_PREFIX="static/"
-
-# Sync local static files (e.g., assets, images, etc.)
-aws s3 sync ./public "s3://$S3_BUCKET/$S3_PREFIX" --delete --region us-east-1
-
-echo "✅ Static content uploaded to s3://$S3_BUCKET/$S3_PREFIX"
-
-echo "✅ Deployment complete!"
-echo "🌐 Application URL: http://$EC2_HOST:3000"
-echo "🔍 Check health: curl http://$EC2_HOST:3000/health"
+    # 5. Set Environment Variables for the App
+    echo "export PORT=${var.node_app_port}" >> /home/ubuntu/.bashrc
+    echo "export DATABASE_URL='postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.db.endpoint}/${var.db_name}'" >> /home/ubuntu/.bashrc
+    
+    # 6. Initial Start
+    npm install --production
+    pm2 start index.js --name node-app
+    pm2 save
+    pm2 startup
+  EOT
+}
