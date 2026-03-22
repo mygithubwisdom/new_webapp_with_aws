@@ -58,7 +58,6 @@ output "vpc_endpoints" {
   }
 }
 
-# ==========================================
 # MONITORING & LOGGING
 
 output "vpc_flow_log_group" {
