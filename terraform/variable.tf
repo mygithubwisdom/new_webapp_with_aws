@@ -155,3 +155,15 @@ variable "cpu_high_threshold" {
   type        = number
   default     = 80
 }
+
+variable "iam_users_require_mfa" {
+  type = list(string)
+}
+
+variable "blocked_countries" {
+  type = list(string)
+}
+
+variable "waf_rate_limit" {
+  type = number
+}
