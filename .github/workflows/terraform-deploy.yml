@@ -95,4 +95,5 @@ jobs:
 
       - name: Notify Status
         if: always()
-        run: echo "Deployment to ${{ github.ref_name }} finished with status: ${{ job.status }}"
+        run: |
+          echo "Deployment to ${{ github.ref_name }} finished with status: ${{ job.status }}"
