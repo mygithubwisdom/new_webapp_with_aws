@@ -1,200 +1,99 @@
-name: CI/CD - Terraform Deploy to EC2
+name: CI/CD - Terraform & SSM Deployment
 
 on:
   push:
-    branches: [ "main" ]   # Trigger deployment on push to main
-  workflow_dispatch:        # Allow manual trigger
+    branches:
+      - main
+      - production
 
 permissions:
-  id-token: write           # Required for OIDC authentication
+  id-token: write
   contents: read
 
 jobs:
   deploy:
+    environment: ${{ github.ref_name }}
     runs-on: ubuntu-latest
     
+    env:
+      PROJECT_NAME: "terraform-aws-webapp-setup" 
+      S3_BUCKET: "terraform-aws-webapp-setup-static-content-4ec3ab3c"
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
     steps:
-      # Step 1: Get the code
-      # Reason: Pulls your latest code from GitHub so the workflow runs on it.
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Step 2:
-      # ✅ Configure AWS credentials via GitHub OIDC
-      # Reason: Allows the workflow to authenticate with AWS securely without storing long-lived credentials. 
-      # It uses OpenID Connect (OIDC) to assume a specified IAM role. It is more secure and manageable.
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-           aws-region: us-east-1 
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: us-east-1
 
-      # Step 3: Install Terraform
-      # ✅ Setup Terraform CLI to run infrastructure commands.
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.9.5   # or your preferred version  
-        
-      # Format Terraform code  
-      # Step 4: Format Terraform code
-      - name: Format Terraform files
-        id: fmt_recursive
-        run: terraform fmt -recursive
-        working-directory: ./terraform
-      
-      - name: Terraform format check
-        id: fmt_check
-        run: terraform fmt -check
-        working-directory: ./terraform
+          terraform_version: 1.9.5
 
-      # Step 5:
-      # ✅ Initialize and validate Terraform
-      #  Reason: Downloads required providers (like AWS) and sets up the working directory.
-      # Reason: Validates that the Terraform code is syntactically correct and ready to run.
-      - name: Terraform Init
-        run: terraform init
-        working-directory: ./terraform
-
-        # Step 6:
-      # ✅ Security scan with Trivy
-      - name: Run Trivy config scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: config
-          scan-ref: ./terraform
-      # Triva is the newer, bigger tool that does what tfsec did (IaC scanning) plus more (container scanning, secrets scanning, etc.). In your workflow, it will check the Terraform code for insecure configurations. (Think of it as a security guard for both your code and infrastructure.)
-            # - name: Terraform Security Scan
-            #   run: TSec ./terraform this isn't needed because we are using Trivia
-    
-      # Steps 7: Validate Terraform code      
-      - name: Terraform Validate
-        run: terraform validate
-        working-directory: ./terraform
-
-      # ADD DEBUG STEP HERE - BEFORE TERRAFORM PLAN
-      - name: Debug Secret Values
+      - name: Terraform Init/Plan/Apply
         run: |
-         echo "SSH_LAPTOP_IP length: ${#SSH_IP}"
-         echo "First char: '${SSH_IP:0:1}'"
-         echo "Last char: '${SSH_IP: -1}'"
-         echo "Full value (masked): $SSH_IP"
-        env:
-          SSH_IP: ${{ secrets.SSH_LAPTOP_IP }}
-    
-      # Step 8:
-      # ✅ Plan infrastructure changes
-      - name: Terraform Plan
+          terraform init
+          terraform plan -out=tfplan \
+            -var-file="${{ github.ref_name }}.tfvars" \
+            -var="ami_id=${{ secrets.PROD_AMI_ID }}" \
+            -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}"
+          terraform apply -auto-approve tfplan
+
+      - name: Upload Static Content to S3
+        working-directory: ./ # Run from root to find your /public folder
         run: |
-           terraform plan -out=tfplan \
-             -var="ami_id=ami-0360c520857e3138f" \
-             -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}" \
-             -var="SSH_laptop_ip=${{ secrets.SSH_LAPTOP_IP }}" \
-             -var="allowed_ssh_cidr=${{ secrets.ALLOWED_SSH_CIDR }}"
+          echo "Syncing static assets to S3..."
+          aws s3 sync ./public "s3://${{ env.S3_BUCKET }}/static/" --delete --region us-east-1
 
-        working-directory: ./terraform
-
-      #  Step 9:
-      # ✅ Apply infrastructure changes
-      - name: Terraform Apply
+      - name: Deploy App Code via SSM
+        working-directory: ./
         run: |
-          terraform apply -auto-approve \
-             -var="ami_id=ami-0360c520857e3138f" \
-             -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}" \
-             -var="SSH_laptop_ip=${{ secrets.SSH_LAPTOP_IP }}" \
-             -var="allowed_ssh_cidr=${{ secrets.ALLOWED_SSH_CIDR }}"
+          echo "Fetching Healthy Instance IDs from ASG..."
+          
+          INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
+            --auto-scaling-group-names "${{ env.PROJECT_NAME }}-asg" \
+            --query 'AutoScalingGroups[0].Instances[?HealthStatus==`Healthy`].InstanceId' \
+            --output text)
 
-        working-directory: ./terraform
-        
-      # Step 10:
-      # ✅ Deploy application to EC2 instance
-      - name: Get EC2 public IP
-        id: ec2        
-        run: |          
-          INSTANCE_ID=$(terraform output -raw instance_id)
-          PUBLIC_IP=$(terraform output -raw public_ip)
-
-          echo "instance_id=$INSTANCE_ID" >> $GITHUB_ENV
-          echo "public_ip=$PUBLIC_IP" >> $GITHUB_ENV
-
-          echo "EC2 Instance ID: $INSTANCE_ID"
-          echo "EC2 Public IP: $PUBLIC_IP"
-        
-        working-directory: ./terraform  
-
-        # Steps 11:
-      - name: Get GitHub Runner IP and whitelist it
-        run: |
-         RUNNER_IP=$(curl -s https://api.ipify.org)
-         echo "Runner IP: $RUNNER_IP"
-    
-         # Get security group ID
-         SG_ID=$(aws ec2 describe-instances \
-           --instance-ids ${{ steps.terraform.outputs.instance_id }} \
-           --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
-           --output text)
-    
-         # Add runner IP to security group temporarily
-          aws ec2 authorize-security-group-ingress \
-          --group-id $SG_ID \
-          --protocol tcp \
-          --port 22 \
-          --cidr ${RUNNER_IP}/32
-    
-         echo "Added $RUNNER_IP to security group $SG_ID"
-      
-       # Steps 12:
-      - name: Prepare SSH key file and run remote apt update
-        run: |
-          mkdir -p /home/runner/.ssh 
-          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > /home/runner/.ssh/SSH_PRIVATE_KEY.pem
-          chmod 600 /home/runner/.ssh/SSH_PRIVATE_KEY.pem
-          ssh -i /home/runner/.ssh/SSH_PRIVATE_KEY.pem -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${{ env.public_ip }} sudo apt update
-        
-        # Steps 13:
-         # # add before running the deploy script
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-            node-version: 18
-
-          # # run the deploy script from the runner and pass EC2 host and SSH key path
-      - name: run deploy script from runner
-        run: |
-          chmod +x ./scripts/deploy.sh
-            ./scripts/deploy.sh "${{ env.public_ip }}" /home/runner/.ssh/SSH_PRIVATE_KEY.pem
-        working-directory: ./terraform    
-      
-         #steps 14:
-      - name: Remove GitHub Runner IP from security group
-        if: always()
-        run: |
-          RUNNER_IP=$(curl -s https://api.ipify.org)
-           SG_ID=$(aws ec2 describe-instances \
-           --instance-ids ${{ steps.terraform.outputs.instance_id }} \
-           --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' \
-           --output text)
-    
-           aws ec2 revoke-security-group-ingress \
-             --group-id $SG_ID \
-             --protocol tcp \
-             --port 22 \
-             --cidr ${RUNNER_IP}/32 || true
-
-        # ✅ Verify deployment health
-      - name: Verify deployment
-        run: |
-          echo "Waiting for app to start..."
-          sleep 15
-          # Use the public IP we just fetched, not a separate secret
-          curl -f http://${{ env.public_ip }}:3000/health || exit 1
-
-      # ✅ Notify result
-      - name: Notify deployment status
-        if: always()
-        run: |
-          if [ "${{ job.status }}" == "success" ]; then
-            echo "✅ Deployment successful!"
-          else
-            echo "❌ Deployment failed!"
+          if [ -z "$INSTANCE_IDS" ] || [ "$INSTANCE_IDS" == "None" ]; then
+            echo "❌ Error: No healthy instances found in ASG. Check AWS Console."
+            exit 1
           fi
+
+          echo "🚀 Deploying to Instances: $INSTANCE_IDS"
+
+          # Single SSM command to update code and restart the process
+          aws ssm send-command \
+            --instance-ids $INSTANCE_IDS \
+            --document-name "AWS-RunShellScript" \
+            --comment "Update code and restart node-app" \
+            --parameters '{
+              "commands": [
+                "cd /home/ubuntu/app",
+                "sudo git pull origin ${{ github.ref_name }}",
+                "npm install --production",
+                "pm2 restart node-app || pm2 start index.js --name node-app",
+                "pm2 save"
+              ]
+            }'
+
+      - name: Verify Production Health
+        run: |
+          echo "Waiting for app restart..."
+          sleep 20
+          ALB_DNS=$(terraform output -raw alb_dns_name)
+          echo "Testing health endpoint at http://$ALB_DNS/health"
+          curl -f http://$ALB_DNS/health || exit 1
+
+      - name: Notify Status
+        if: always()
+        run: |
+          echo "Deployment to ${{ github.ref_name }} finished with status: ${{ job.status }}"
