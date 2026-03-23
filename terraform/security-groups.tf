@@ -1,350 +1,136 @@
-//Security Groups - Network Traffic Control
+# 1. SECURITY GROUPS (The State-aware "Locks")
+# ==========================================================
 
-# 1. Bastion Host Security Group (SSH Jump Server)
-resource "aws_security_group" "bastion" {
-  name        = "${var.project_name}-bastion-sg"
-  description = "Security group for SSH bastion/jump server"
+# --- ALB Security Group (Public Facing) ---
+resource "aws_security_group" "alb_sg" {
+  name        = "${var.project_name}-alb-sg"
+  description = "Security group for Application Load Balancer"
   vpc_id      = aws_vpc.main-webapp.id
 
-  # SSH from MY LAPTOP ONLY
   ingress {
-    description = "SSH from your laptop"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.SSH_laptop_ip]
-  }
-
-  # HTTPS outbound for package updates and API calls
-  # SECURITY NOTE: 0.0.0.0/0 is required because:
-  # - Package repositories (apt, yum) use various CDN IPs that change frequently
-  # - External API calls may target any HTTPS endpoint
-  # - Port is restricted to 443 only, limiting attack surface
-  # - This is standard practice for servers requiring internet access
-  egress {
-    description = "HTTPS outbound for package updates and API calls"
+    description = "Public HTTPS Access"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["0.0.0.0/0"] 
   }
 
-  # HTTP outbound for package updates
-  # SECURITY NOTE: 0.0.0.0/0 is required because:
-  # - Some package repositories use HTTP (though less common)
-  # - HTTP redirects to HTTPS may be needed
-  # - Port is restricted to 80 only
+  # Allow ALB to send traffic to App Servers on the Node Port
   egress {
-    description = "HTTP outbound for package updates"
-    from_port   = 80
-    to_port     = 80
+    description = "Forward traffic to app servers"
+    from_port   = var.node_app_port
+    to_port     = var.node_app_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # DNS outbound to VPC DNS resolver (restricted to VPC DNS)
-  egress {
-    description = "DNS outbound to VPC resolver"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = ["169.254.169.253/32"] # VPC DNS resolver IP
-  }
-
-  # DNS outbound TCP to VPC DNS resolver (for large responses)
-  egress {
-    description = "DNS outbound TCP to VPC resolver"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = ["169.254.169.253/32"] # VPC DNS resolver IP
-  }
-
-  # Ephemeral ports for return traffic
-  # SECURITY NOTE: 0.0.0.0/0 is REQUIRED and UNAVOIDABLE because:
-  # - When initiating connections, the OS uses ephemeral ports (1024-65535)
-  # - Return traffic can come from ANY IP address that was contacted
-  # - This is how TCP/IP works - you cannot predict the source IP of responses
-  # - Without this rule, outbound connections would fail
-  # - This is standard practice and required for any server making outbound connections
-  egress {
-    description = "Ephemeral ports for return traffic (required for outbound connections)"
-    from_port   = 1024
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = [aws_vpc.main-webapp.cidr_block]
   }
 
   tags = {
-    Name = "${var.project_name}-bastion-sg"
+    Name        = "${var.project_name}-alb-sg"
+    Environment = var.environment
   }
 }
 
-# 2. Web Server Security Group
-
-# Security Group for EC2  
-resource "aws_security_group" "ec2" {
-  name        = "${var.project_name}-ec2-sg"
-  description = "Security group for EC2 instance"
+# --- App Server Security Group (Private) ---
+resource "aws_security_group" "app_server" {
+  name        = "${var.project_name}-app-sg-prod"
+  description = "Production Security Group for Express App - Private Subnet"
   vpc_id      = aws_vpc.main-webapp.id
 
-  # SSH from allowed CIDR only
-  # SECURITY NOTE: Set var.allowed_ssh_cidr to your specific IP (e.g., "203.0.113.45/32")
-  # Default is "0.0.0.0/0" which allows SSH from anywhere - change this in terraform.tfvars
+  # Inbound: ONLY Web traffic from the ALB
   ingress {
-    description = "SSH from allowed CIDR"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.allowed_ssh_cidr]
+    description     = "Node.js app port from ALB"
+    from_port       = var.node_app_port
+    to_port         = var.node_app_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id] 
   }
 
-  # HTTP from YOUR LAPTOP (for testing)
-  ingress {
-    description = "HTTP from your laptop"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = [var.SSH_laptop_ip] # Only your IP
-  }
-
-  # Https access Node.js app port (development/testing)
-  ingress {
-    description = "Node App"
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = [var.SSH_laptop_ip]
-  }
-
-  # HTTPS (for production)
-  ingress {
-    description = "HTTPS from internet"
+  # Outbound: HTTPS (Required for SSM, OS updates, and API calls)
+  egress {
+    description = "Allow HTTPS outbound"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # HTTPS outbound for package updates and API calls
-  # SECURITY NOTE: 0.0.0.0/0 is required because:
-  # - Package repositories (apt, yum) use various CDN IPs that change frequently
-  # - External API calls may target any HTTPS endpoint
-  # - Port is restricted to 443 only, limiting attack surface
-  # - This is standard practice for servers requiring internet access
+  # Outbound: Database (To RDS in Private Subnet)
   egress {
-    description = "HTTPS outbound for package updates and API calls"
-    from_port   = 443
-    to_port     = 443
+    description = "Allow traffic to RDS"
+    from_port   = var.db_port
+    to_port     = var.db_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # HTTP outbound for package updates
-  # SECURITY NOTE: 0.0.0.0/0 is required because:
-  # - Some package repositories use HTTP (though less common)
-  # - HTTP redirects to HTTPS may be needed
-  # - Port is restricted to 80 only
-  egress {
-    description = "HTTP outbound for package updates"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # DNS outbound to VPC DNS resolver (restricted to VPC DNS)
-  egress {
-    description = "DNS outbound to VPC resolver"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = ["169.254.169.253/32"] # VPC DNS resolver IP
-  }
-
-  # DNS outbound TCP to VPC DNS resolver (for large responses)
-  egress {
-    description = "DNS outbound TCP to VPC resolver"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = ["169.254.169.253/32"] # VPC DNS resolver IP
-  }
-
-  # Ephemeral ports for return traffic
-  # SECURITY NOTE: 0.0.0.0/0 is REQUIRED and UNAVOIDABLE because:
-  # - When initiating connections, the OS uses ephemeral ports (1024-65535)
-  # - Return traffic can come from ANY IP address that was contacted
-  # - This is how TCP/IP works - you cannot predict the source IP of responses
-  # - Without this rule, outbound connections would fail
-  # - This is standard practice and required for any server making outbound connections
-  egress {
-    description = "Ephemeral ports for return traffic (required for outbound connections)"
-    from_port   = 1024
-    to_port     = 65535
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # SSH from allowed CIDR only
-  ingress {
-    description = "SSH from allowed CIDR"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [
-      var.allowed_ssh_cidr,
-      # GitHub Actions IP ranges (update periodically from https://api.github.com/meta)
-      "4.175.114.51/32",
-      "20.102.39.205/32",
-      # Add more GitHub IPs as needed
-    ]
+    cidr_blocks = [aws_vpc.main-webapp.cidr_block]
   }
 
   tags = {
-    Name = "${var.project_name}-ec2-sg"
+    Name        = "${var.project_name}-app-sg-prod"
+    Environment = var.environment
   }
 }
 
-# Create a NACL for the Public Subnet
+# ==========================================================
+# 2. NETWORK ACLS (The Stateless "Firewalls")
+
+# --- PUBLIC SUBNET NACL (For ALB) ---
 resource "aws_network_acl" "PublicSubnetNACL" {
   vpc_id = aws_vpc.main-webapp.id
-
-  tags = {
-    Name = var.public_nacl_name
-  }
+  tags   = { Name = "${var.project_name}-public-nacl" }
 }
 
-# NACL rules for public subnet
-resource "aws_network_acl_rule" "PublicInboundHTTP" {
+resource "aws_network_acl_rule" "PublicInboundHTTPS" {
   network_acl_id = aws_network_acl.PublicSubnetNACL.id
   rule_number    = 100
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
   cidr_block     = "0.0.0.0/0"
-  from_port      = 80
-  to_port        = 80
+  from_port      = 443
+  to_port        = 443
 }
 
-resource "aws_network_acl_rule" "PublicInboundHTTPS" {
+resource "aws_network_acl_rule" "PublicInboundEphemeral" {
   network_acl_id = aws_network_acl.PublicSubnetNACL.id
   rule_number    = 110
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
   cidr_block     = "0.0.0.0/0"
-  from_port      = 443
-  to_port        = 443
-}
-
-# SECURITY NOTE: Set var.allowed_ssh_cidr to your specific IP (e.g., "203.0.113.45/32")
-# Default is "0.0.0.0/0" which allows SSH from anywhere - change this in terraform.tfvars
-resource "aws_network_acl_rule" "PublicInboundSSH" {
-  network_acl_id = aws_network_acl.PublicSubnetNACL.id
-  rule_number    = 120
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = false
-  cidr_block     = var.allowed_ssh_cidr # use the allowed SSH CIDR variable (e.g. your-ip/32) 
-  from_port      = var.ssh_port
-  to_port        = var.ssh_port
-}
-
-# NACL rules for public subnet (Added Rule)
-resource "aws_network_acl_rule" "PublicInboundNodeApp" {
-  network_acl_id = aws_network_acl.PublicSubnetNACL.id
-  rule_number    = 135 # Next rule number
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = false
-  cidr_block     = var.allowed_ssh_cidr
-  from_port      = 3000
-  to_port        = 3000
-}
-
-# NACL Outbound rule to allow the server to respond to requests
-resource "aws_network_acl_rule" "PublicOutboundReply" {
-  network_acl_id = aws_network_acl.PublicSubnetNACL.id
-  rule_number    = 140
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = true # This makes it an OUTBOUND rule
-  cidr_block     = "0.0.0.0/0"
   from_port      = 1024
-  to_port        = 65535 # Ephemeral port range
+  to_port        = 65535
 }
 
-# Allow HTTPS outbound
-resource "aws_network_acl_rule" "PublicOutboundHTTPS" {
+resource "aws_network_acl_rule" "PublicOutboundAll" {
   network_acl_id = aws_network_acl.PublicSubnetNACL.id
   rule_number    = 200
-  protocol       = "tcp"
+  protocol       = "-1" # Allows all outbound for simplicity at NACL level
   rule_action    = "allow"
   egress         = true
   cidr_block     = "0.0.0.0/0"
-  from_port      = 443
-  to_port        = 443
+  from_port      = 0
+  to_port        = 0
 }
 
-# Allow HTTP outbound
-resource "aws_network_acl_rule" "PublicOutboundHTTP" {
-  network_acl_id = aws_network_acl.PublicSubnetNACL.id
-  rule_number    = 201
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = true
-  cidr_block     = "0.0.0.0/0"
-  from_port      = 80
-  to_port        = 80
-}
-
-# Allow DNS outbound to VPC resolver (UDP)
-resource "aws_network_acl_rule" "PublicOutboundDNSUDP" {
-  network_acl_id = aws_network_acl.PublicSubnetNACL.id
-  rule_number    = 202
-  protocol       = "udp"
-  rule_action    = "allow"
-  egress         = true
-  cidr_block     = "169.254.169.253/32" # VPC DNS resolver IP
-  from_port      = 53
-  to_port        = 53
-}
-
-# Allow DNS outbound to VPC resolver (TCP)
-resource "aws_network_acl_rule" "PublicOutboundDNSTCP" {
-  network_acl_id = aws_network_acl.PublicSubnetNACL.id
-  rule_number    = 203
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = true
-  cidr_block     = "169.254.169.253/32" # VPC DNS resolver IP
-  from_port      = 53
-  to_port        = 53
-}
-
-# Create a NACL for the Private Subnet
+# --- PRIVATE SUBNET NACL (For App Servers) ---
 resource "aws_network_acl" "PrivateSubnetNACL" {
   vpc_id = aws_vpc.main-webapp.id
+  tags   = { Name = "${var.project_name}-private-nacl" }
 }
 
-# Allow inbound traffic from the public subnet
-resource "aws_network_acl_rule" "PrivateInboundFromPublic" {
+resource "aws_network_acl_rule" "PrivateInboundFromALB" {
   network_acl_id = aws_network_acl.PrivateSubnetNACL.id
-  rule_number    = 115
+  rule_number    = 100
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
   cidr_block     = var.public_subnet_cidr
-  from_port      = 0
-  to_port        = 65535
+  from_port      = var.node_app_port
+  to_port        = var.node_app_port
 }
 
-# Allow Inbound Ephemeral ports from the Internet 
-# (Required for the replies to your HTTPS/HTTP outbound calls)
-resource "aws_network_acl_rule" "PrivateInboundInternetReply" {
+resource "aws_network_acl_rule" "PrivateInboundEphemeral" {
   network_acl_id = aws_network_acl.PrivateSubnetNACL.id
-  rule_number    = 111 # Between your public trust and your deny all
+  rule_number    = 110
   protocol       = "tcp"
   rule_action    = "allow"
   egress         = false
@@ -353,148 +139,13 @@ resource "aws_network_acl_rule" "PrivateInboundInternetReply" {
   to_port        = 65535
 }
 
-# Allow outbound traffic to the public subnet
-resource "aws_network_acl_rule" "PrivateOutboundToPublic" {
+resource "aws_network_acl_rule" "PrivateOutboundAll" {
   network_acl_id = aws_network_acl.PrivateSubnetNACL.id
   rule_number    = 200
-  protocol       = "tcp"
+  protocol       = "-1" 
   rule_action    = "allow"
   egress         = true
-  cidr_block     = var.public_subnet_cidr //"aws_vpc.foo.cidr_block
+  cidr_block     = "0.0.0.0/0"
   from_port      = 0
-  to_port        = 65535
+  to_port        = 0
 }
-
-# Allow HTTPS outbound to internet
-resource "aws_network_acl_rule" "PrivateOutboundToInternetHTTPS" {
-  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
-  rule_number    = 210
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = true
-  cidr_block     = "0.0.0.0/0"
-  from_port      = 443
-  to_port        = 443
-}
-
-# Allow HTTP outbound to internet
-resource "aws_network_acl_rule" "PrivateOutboundToInternetHTTP" {
-  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
-  rule_number    = 211
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = true
-  cidr_block     = "0.0.0.0/0"
-  from_port      = 80
-  to_port        = 80
-}
-
-# Allow DNS outbound to VPC resolver (UDP)
-resource "aws_network_acl_rule" "PrivateOutboundToInternetDNSUDP" {
-  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
-  rule_number    = 212
-  protocol       = "udp"
-  rule_action    = "allow"
-  egress         = true
-  cidr_block     = "169.254.169.253/32" # VPC DNS resolver IP
-  from_port      = 53
-  to_port        = 53
-}
-
-# Allow DNS outbound to VPC resolver (TCP)
-resource "aws_network_acl_rule" "PrivateOutboundToInternetDNSTCP" {
-  network_acl_id = aws_network_acl.PrivateSubnetNACL.id
-  rule_number    = 213
-  protocol       = "tcp"
-  rule_action    = "allow"
-  egress         = true
-  cidr_block     = "169.254.169.253/32" # VPC DNS resolver IP
-  from_port      = 53
-  to_port        = 53
-}
-
-// 3. Security Group (Private Subnet)
-
-resource "aws_security_group" "app_server" {
-  name        = "${var.project_name}-app-server-sg"
-  description = "Security group for application server"
-  vpc_id      = aws_vpc.main-webapp.id
-
-  # SSH from Bastion ONLY
-  ingress {
-    description     = "SSH from Bastion"
-    from_port       = 22
-    to_port         = 22
-    protocol        = "tcp"
-    security_groups = [aws_security_group.bastion.id]
-  }
-
-  # App traffic from Web Server
-  ingress {
-    description     = "App port from Web Server"
-    from_port       = 3000
-    to_port         = 3000
-    protocol        = "tcp"
-    security_groups = [aws_security_group.ec2.id]
-  }
-
-  # TEMP: allow CI runners (public) to reach the Node app on 3000
-  ingress {
-    description = "CI healthcheck to Node app"
-    from_port   = 3000
-    to_port     = 3000
-    protocol    = "tcp"
-    cidr_blocks = [var.SSH_laptop_ip] #["0.0.0.0/0"]
-  }
-
-  # HTTPS outbound for package updates and API calls
-  # SECURITY NOTE: 0.0.0.0/0 is required because:
-  # - Package repositories (apt, yum) use various CDN IPs that change frequently
-  # - External API calls may target any HTTPS endpoint
-  # - Port is restricted to 443 only, limiting attack surface
-  # - This is standard practice for servers requiring internet access
-  egress {
-    description = "HTTPS outbound for package updates and API calls"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  # HTTP outbound for package updates
-  # SECURITY NOTE: 0.0.0.0/0 is required because:
-  # - Some package repositories use HTTP (though less common)
-  # - HTTP redirects to HTTPS may be needed
-  # - Port is restricted to 80 only
-  egress {
-    description = "HTTP outbound for package updates"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] #Consider disabling after setup
-  }
-
-  # DNS outbound to VPC DNS resolver (restricted to VPC DNS)
-  egress {
-    description = "DNS outbound to VPC resolver"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "udp"
-    cidr_blocks = ["169.254.169.253/32"] # VPC DNS resolver IP
-  }
-
-  # DNS outbound TCP to VPC DNS resolver (for large responses)
-  egress {
-    description = "DNS outbound TCP to VPC resolver"
-    from_port   = 53
-    to_port     = 53
-    protocol    = "tcp"
-    cidr_blocks = ["169.254.169.253/32"] # VPC DNS resolver IP
-  }
-
-  tags = {
-    Name = "${var.project_name}-app-server-sg"
-  }
-}
-
-

@@ -95,93 +95,6 @@ resource "aws_sns_topic_subscription" "email_alerts" {
   endpoint  = var.notification_email
 }
 
-# CloudWatch Dashboard
-resource "aws_cloudwatch_dashboard" "main" {
-  dashboard_name = "${var.project_name}-dashboard"
-
-  dashboard_body = jsonencode({
-    widgets = [
-      {
-        type   = "metric"
-        x      = 0
-        y      = 0
-        width  = 12
-        height = 6
-        properties = {
-          metrics = [
-            ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.example.id],
-            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.example.id],
-            ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.example.id],
-            ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.example.id]
-          ]
-          view    = "timeSeries"
-          stacked = false
-          region  = "us-east-1"
-          title   = "EC2 Instance Metrics"
-          period  = 300
-        }
-      },
-      {
-        type   = "log"
-        x      = 0
-        y      = 6
-        width  = 12
-        height = 6
-        properties = {
-          query  = "SOURCE '/aws/ec2/${var.project_name}' | fields @timestamp, @message | sort @timestamp desc | limit 20"
-          region = "us-east-1"
-          title  = "Application Logs"
-        }
-      }
-    ]
-  })
-}
-
-# CloudWatch Alarms
-resource "aws_cloudwatch_metric_alarm" "high_cpu" {
-  alarm_name          = "${var.project_name}-high-cpu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = 300
-  statistic           = "Average"
-  threshold           = 80
-  alarm_description   = "EC2 CPU utilization exceeds 80%" #"This metric monitors ec2 cpu utilization"
-  alarm_actions       = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
-  ok_actions          = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
-
-
-
-  dimensions = {
-    InstanceId = aws_instance.example.id
-  }
-
-  tags = {
-    Name = "${var.project_name}-cpu-alarm"
-  }
-}
-
-resource "aws_cloudwatch_metric_alarm" "status_check" {
-  alarm_name          = "${var.project_name}-status-check"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "StatusCheckFailed"
-  namespace           = "AWS/EC2"
-  period              = 60
-  statistic           = "Maximum"
-  threshold           = 0
-  alarm_description   = "EC2 status check failed"
-  alarm_actions       = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
-
-  dimensions = {
-    InstanceId = aws_instance.example.id
-  }
-
-  tags = {
-    Name = "${var.project_name}-status-alarm"
-  }
-}
 
 # CloudWatch Alarms
 
@@ -203,37 +116,13 @@ resource "aws_cloudwatch_metric_alarm" "high_response_time" {
     InstanceId = aws_instance.example.id
   }
 
+
   tags = {
     Name        = "${var.environment}-high-response-time-alarm"
     Environment = var.environment
   }
 }
 
-# Network Monitor for EC2 Health Monitoring
-resource "aws_networkmonitor_monitor" "webapp" {
-  aggregation_period = 60
-  monitor_name       = "${var.project_name}-network-monitor"
-
-  tags = {
-    Name        = "${var.project_name}-monitor"
-    Environment = var.environment
-  }
-}
-
-# Probe to monitor EC2 instance health
-resource "aws_networkmonitor_probe" "ec2_health" {
-  monitor_name     = aws_networkmonitor_monitor.webapp.monitor_name
-  destination      = aws_instance.example.private_ip
-  destination_port = 3000
-  protocol         = "TCP"
-  source_arn       = aws_subnet.Publicsubnet.arn
-  packet_size      = 56
-
-  tags = {
-    Name   = "${var.project_name}-ec2-probe"
-    Target = "EC2-NodeApp"
-  }
-}
 
 # VPC Flow Logs IAM Role
 resource "aws_iam_role" "vpc_flow_logs" {
@@ -282,13 +171,9 @@ resource "aws_iam_role_policy" "vpc_flow_logs" {
 
 # CloudWatch Log Group for VPC Flow Logs
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
-  name              = "/aws/vpc/flow-logs/Terraform-AWS-webapp-Setup"
-  retention_in_days = 30
+  name              = "/aws/vpc/flow-logs/${var.project_name}"
+  retention_in_days = 7
   kms_key_id        = aws_kms_key.cloudwatch_logs.arn
-
-  lifecycle {
-    prevent_destroy = true
-  }
 }
 
 # CloudWatch Log Group for Webapp Logs
@@ -326,24 +211,5 @@ resource "aws_cloudwatch_log_metric_filter" "ssh_connections" {
     name      = "SSHConnectionCount"
     namespace = "${var.project_name}/VPC"
     value     = "1"
-  }
-}
-
-# Alarm for SSH Connections
-resource "aws_cloudwatch_metric_alarm" "ssh_alert" {
-  alarm_name          = "${var.project_name}-ssh-connections-alert"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  metric_name         = "SSHConnectionCount"
-  namespace           = "${var.project_name}/VPC"
-  period              = 300
-  statistic           = "Sum"
-  threshold           = 10
-  alarm_description   = "Alert when SSH connections exceed 10 in 5 minutes"
-  treat_missing_data  = "notBreaching"
-  alarm_actions       = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
-
-  tags = {
-    Name = "${var.project_name}-ssh-alarm"
   }
 }
