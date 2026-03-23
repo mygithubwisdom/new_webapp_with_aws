@@ -216,7 +216,7 @@ variable "iam_users_require_mfa" {
 # WAF & SECURITY SERVICES
 
 variable "blocked_countries" {
-  description = "List of country codes to block"
+  description = "List of country codes to block" 
   type        = list(string)
   default     = []
 }
@@ -231,16 +231,4 @@ variable "rds_kms_key_arn" {
   description = "KMS Key ARN for RDS encryption"
   type        = string
   default     = "" 
-}
-
-variable "iam_users_require_mfa" {
-  type = list(string)
-}
-
-variable "blocked_countries" {
-  type = list(string)
-}
-
-variable "waf_rate_limit" {
-  type = number
 }

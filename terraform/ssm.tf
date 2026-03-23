@@ -1,27 +1,5 @@
 # AWS Systems Manager (SSM) Session Manager Configuration
 
-# IAM Role for EC2 to use SSM
-resource "aws_iam_role" "app_server_role" {
-  name = "${var.project_name}-app-server-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = "sts:AssumeRole"
-        Effect = "Allow"
-        Principal = {
-          Service = "ec2.amazonaws.com"
-        }
-      }
-    ]
-  })
-
-  tags = {
-    Name = "${var.project_name}-ssm-role"
-  }
-}
-
 # Attach AWS managed SSM policy
 resource "aws_iam_role_policy_attachment" "ssm_policy" {
   role       = aws_iam_role.ssm_role.name
@@ -39,32 +17,12 @@ resource "aws_iam_role_policy" "ssm_cloudwatch" {
       {
         Effect = "Allow"
         Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "logs:DescribeLogStreams"
-        ]
-        Resource = "arn:aws:logs:*:*:*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
           "s3:GetObject"
         ]
         Resource = "arn:aws:s3:::aws-ssm-*/*"
       }
     ]
   })
-}
-
-# IAM Instance Profile for EC2
-resource "aws_iam_instance_profile" "ssm_profile" {
-  name = "${var.project_name}-ssm-profile"
-  role = aws_iam_role.ssm_role.name
-
-  tags = {
-    Name = "${var.project_name}-ssm-profile"
-  }
 }
 
 # ============================================================================
@@ -109,34 +67,6 @@ resource "aws_vpc_endpoint" "ssm" {
 
   tags = {
     Name = "${var.project_name}-ssm-endpoint"
-  }
-}
-
-# SSM Messages Endpoint
-resource "aws_vpc_endpoint" "ssmmessages" {
-  vpc_id              = aws_vpc.main-webapp.id
-  service_name        = "com.amazonaws.${var.aws_region}.ssmmessages"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${var.project_name}-ssmmessages-endpoint"
-  }
-}
-
-# EC2 Messages Endpoint
-resource "aws_vpc_endpoint" "ec2messages" {
-  vpc_id              = aws_vpc.main-webapp.id
-  service_name        = "com.amazonaws.${var.aws_region}.ec2messages"
-  vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
-  private_dns_enabled = true
-
-  tags = {
-    Name = "${var.project_name}-ec2messages-endpoint"
   }
 }
 
