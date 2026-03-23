@@ -1,30 +1,4 @@
 # AWS Systems Manager (SSM) Session Manager Configuration
-
-# Attach AWS managed SSM policy
-resource "aws_iam_role_policy_attachment" "ssm_policy" {
-  role       = aws_iam_role.ssm_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-# Custom policy for CloudWatch Logs
-resource "aws_iam_role_policy" "ssm_cloudwatch" {
-  name = "${var.project_name}-ssm-cloudwatch-policy"
-  role = aws_iam_role.ssm_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject"
-        ]
-        Resource = "arn:aws:s3:::aws-ssm-*/*"
-      }
-    ]
-  })
-}
-
 # ============================================================================
 # VPC Endpoints for SSM (Required for Private Subnet Access)
 # ============================================================================
