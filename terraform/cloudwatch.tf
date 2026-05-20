@@ -95,35 +95,7 @@ resource "aws_sns_topic_subscription" "email_alerts" {
   endpoint  = var.notification_email
 }
 
-
-# CloudWatch Alarms
-
-# High Response Time Alarm
-resource "aws_cloudwatch_metric_alarm" "high_response_time" {
-  alarm_name          = "${var.project_name}-high-response-time"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = "2"
-  metric_name         = "TargetResponseTime"
-  namespace           = "AWS/EC2"
-  period              = "300"
-  statistic           = "Average"
-  threshold           = "2" # 2 seconds
-  alarm_description   = "This metric monitors application response time"
-  alarm_actions       = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
-  ok_actions          = var.notification_email != "" ? [aws_sns_topic.alerts.arn] : []
-
-  dimensions = {
-    InstanceId = aws_instance.example.id
-  }
-
-
-  tags = {
-    Name        = "${var.environment}-high-response-time-alarm"
-    Environment = var.environment
-  }
-}
-
-
+# ============================================================================
 # VPC Flow Logs IAM Role
 resource "aws_iam_role" "vpc_flow_logs" {
   name = "${var.project_name}-vpc-flow-logs-role"

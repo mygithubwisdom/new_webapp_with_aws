@@ -5,7 +5,9 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ============================================================================
 // Middleware
+
 app.use(express.json());
 
 // Logging middleware
@@ -18,6 +20,8 @@ app.use((req, res, next) => {
 });
 
 // Routes
+
+// Root endpoint
 app.get('/', (req, res) => {
   res.json({
     message: 'Hello World!',
@@ -26,6 +30,7 @@ app.get('/', (req, res) => {
   });
 });
 
+// Health endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
@@ -34,6 +39,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+// API info endpoint
 app.get('/api/info', (req, res) => {
   res.json({
     app: 'Node.js Web Application',
@@ -43,28 +49,44 @@ app.get('/api/info', (req, res) => {
   });
 });
 
+// Error Handlers
+// ============================================================================
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
-// Error handler
+// Global error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server is running and accessible at http://0.0.0.0:${PORT}`);
-});
+// ============================================================================
+// Server Start (Only when not in test mode)
+// ============================================================================
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, closing server gracefully');
-  server.close(() => {
-    console.log('Server closed');
-    process.exit(0);
+let server;
+
+if (require.main === module) {
+  server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running at http://0.0.0.0:${PORT}`);
   });
-});
+
+  // Fix for AWS ALB 502 errors
+  server.keepAliveTimeout = 65000; // 65 seconds (ALB timeout is 60s)
+  server.headersTimeout = 66000;   // 66 seconds (must be > keepAliveTimeout)
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, closing server gracefully');
+    server.close(() => {
+      console.log('Server closed');
+      process.exit(0);
+    });
+  });
+}
+
 
 module.exports = app;

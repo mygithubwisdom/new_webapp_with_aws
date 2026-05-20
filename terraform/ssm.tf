@@ -1,5 +1,29 @@
 # AWS Systems Manager (SSM) Session Manager Configuration
-# ============================================================================
+# ============================================================================ 
+
+# 1. The actual IAM Role
+resource "aws_iam_role" "ssm_role" {
+  name = "${var.project_name}-ssm-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ssm_policy_attach" {
+  role       = aws_iam_role.ssm_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 # VPC Endpoints for SSM (Required for Private Subnet Access)
 # ============================================================================
 
@@ -30,18 +54,35 @@ resource "aws_security_group" "vpc_endpoints" {
   }
 }
 
-# SSM Endpoint
+# # The Primary SSM Interface Endpoint
 resource "aws_vpc_endpoint" "ssm" {
   vpc_id              = aws_vpc.main-webapp.id
-  service_name        = "com.amazonaws.${var.aws_region}.ssm"
+  service_name        = "com.amazonaws.us-east-1.ssm" # The missing one
   vpc_endpoint_type   = "Interface"
-  subnet_ids          = [aws_subnet.private_a.id, aws_subnet.private_b.id]
-  security_group_ids  = [aws_security_group.vpc_endpoints.id]
+  security_group_ids  = [aws_security_group.ssm_sg.id]
+  subnet_ids          = [aws_subnet.Privatesubnet_a.id, aws_subnet.Privatesubnet_b.id]
   private_dns_enabled = true
+}
 
-  tags = {
-    Name = "${var.project_name}-ssm-endpoint"
-  }
+# SSM Endpoint
+# This provides the "MESSAGES" path for SSM
+resource "aws_vpc_endpoint" "ssmmessages" {
+  vpc_id              = aws_vpc.main-webapp.id
+  service_name        = "com.amazonaws.us-east-1.ssmmessages" # Ensure this matches your provider region
+  vpc_endpoint_type   = "Interface"
+  security_group_ids  = [aws_security_group.ssm_sg.id]
+  subnet_ids          = [aws_subnet.Privatesubnet_a.id, aws_subnet.Privatesubnet_b.id]
+  private_dns_enabled = true
+}
+
+# This provides the "EC2" command path
+resource "aws_vpc_endpoint" "ec2messages" {
+  vpc_id              = aws_vpc.main-webapp.id
+  service_name        = "com.amazonaws.us-east-1.ec2messages"
+  vpc_endpoint_type   = "Interface"
+  security_group_ids  = [aws_security_group.ssm_sg.id]
+  subnet_ids          = [aws_subnet.Privatesubnet_a.id, aws_subnet.Privatesubnet_b.id]
+  private_dns_enabled = true
 }
 
 # ============================================================================

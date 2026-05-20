@@ -15,7 +15,7 @@ variable "project_name" {
 variable "environment" {
   description = "Deployment environment"
   type        = string
-  default     = "Production"
+  default     = "production"
 }
 
 # ==========================================
@@ -65,7 +65,7 @@ variable "public_subnet_b_cidr" {
   default     = "10.0.3.0/24"
 }
 
-variable "private_subnet_cidr" {
+variable "private_subnet_a_cidr" {
   description = "CIDR block for the private subnet"
   type        = string
   default     = "10.0.2.0/24"
@@ -176,7 +176,7 @@ variable "db_port" {
 variable "db_multi_az" {
   description = "Enable Multi-AZ deployment for RDS"
   type        = bool
-  default     = false 
+  default     = false
 }
 
 # ==========================================
@@ -216,9 +216,9 @@ variable "iam_users_require_mfa" {
 # WAF & SECURITY SERVICES
 
 variable "blocked_countries" {
-  description = "List of country codes to block" 
+  description = "List of country codes to block"
   type        = list(string)
-  default     = []
+  default     = ["RU", "CN", "IR", "KP"]
 }
 
 variable "waf_rate_limit" {
@@ -230,5 +230,5 @@ variable "waf_rate_limit" {
 variable "rds_kms_key_arn" {
   description = "KMS Key ARN for RDS encryption"
   type        = string
-  default     = "" 
+  default     = ""
 }
