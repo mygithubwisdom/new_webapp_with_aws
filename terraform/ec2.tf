@@ -38,56 +38,56 @@ resource "aws_iam_policy" "s3_access" {
 
 
 # User data script
-locals {
-  user_data = <<-EOF
-              #!/bin/bash
-              set -e
+# locals {
+#   user_data = <<-EOF
+#               #!/bin/bash
+#               set -e
               
-              # Update system
-              apt-get update
-              apt-get upgrade -y
+#               # Update system
+#               apt-get update
+#               apt-get upgrade -y
               
-              # Install Node.js 18.x
-              curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-              apt-get install -y nodejs
+#               # Install Node.js 18.x
+#               curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+#               apt-get install -y nodejs
               
-              # Install PM2 globally
-              npm install -g pm2
+#               # Install PM2 globally
+#               npm install -g pm2
               
-              # Install CloudWatch agent
-              wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-              dpkg -i -E ./amazon-cloudwatch-agent.deb
+#               # Install CloudWatch agent
+#               wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+#               dpkg -i -E ./amazon-cloudwatch-agent.deb
               
-              # Create app directory
-              mkdir -p /home/ubuntu/app
-              chown -R ubuntu:ubuntu /home/ubuntu/app
+#               # Create app directory
+#               mkdir -p /home/ubuntu/app
+#               chown -R ubuntu:ubuntu /home/ubuntu/app
               
-              # Configure CloudWatch agent
-              cat > /opt/aws/amazon-cloudwatch-agent/etc/config.json <<'EOL'
-              {
-                "logs": {
-                  "logs_collected": {
-                    "files": {
-                      "collect_list": [
-                        {
-                          "file_path": "/home/ubuntu/app/app.log",
-                          "log_group_name": "/aws/ec2/${var.project_name}",
-                          "log_stream_name": "{instance_id}"
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-              EOL
+#               # Configure CloudWatch agent
+#               cat > /opt/aws/amazon-cloudwatch-agent/etc/config.json <<'EOL'
+#               {
+#                 "logs": {
+#                   "logs_collected": {
+#                     "files": {
+#                       "collect_list": [
+#                         {
+#                           "file_path": "/home/ubuntu/app/app.log",
+#                           "log_group_name": "/aws/ec2/${var.project_name}",
+#                           "log_stream_name": "{instance_id}"
+#                         }
+#                       ]
+#                     }
+#                   }
+#                 }
+#               }
+#               EOL
               
-              # Start CloudWatch agent
-              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-                -a fetch-config \
-                -m ec2 \
-                -s \
-                -c file:/opt/aws/amazon-cloudwatch-agent/etc/config.json
+#               # Start CloudWatch agent
+#               /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+#                 -a fetch-config \
+#                 -m ec2 \
+#                 -s \
+#                 -c file:/opt/aws/amazon-cloudwatch-agent/etc/config.json
               
-              echo "Setup complete"
-              EOF
-}
+#               echo "Setup complete"
+#               EOF
+# }
