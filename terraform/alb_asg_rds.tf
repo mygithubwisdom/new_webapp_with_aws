@@ -55,7 +55,13 @@ resource "aws_launch_template" "app" {
   vpc_security_group_ids = [aws_security_group.app_server.id]
 
   # This is where my Node.js startup script lives
-  user_data = filebase64("${path.module}/scripts/deploy.sh")
+  user_data = base64encode(templatefile("${path.module}/scripts/deploy.sh", {
+    node_app_port = var.node_app_port
+    db_username   = var.db_username
+    db_password   = var.db_password
+    db_endpoint   = aws_db_instance.db.endpoint
+    db_name       = var.db_name
+  }))
 
   # Enforce IMDSv2 for security (Best Practice)
   metadata_options {
