@@ -19,7 +19,7 @@ sudo chown -R ubuntu:ubuntu /home/ubuntu/app
 cd /home/ubuntu/app
 
 # 3. Clone repo
-git clone -b production https://github.com/mynommy/n_webapp_with_aws.git .
+git clone -b production https://github.com/mygithubwisdom/new_webapp_with_aws.git  .
 
 # Fix ownership
 sudo chown -R ubuntu:ubuntu /home/ubuntu/app
