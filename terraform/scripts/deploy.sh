@@ -19,32 +19,31 @@ sudo chown -R ubuntu:ubuntu /home/ubuntu/app
 cd /home/ubuntu/app
 
 # 3. Clone repo
-git clone https://github.com/mygithubwisdom/new_webapp_with_aws.git .
+git clone -b production https://github.com/mynommy/n_webapp_with_aws.git .
 
-# Fix ownership after clone
+# Fix ownership
 sudo chown -R ubuntu:ubuntu /home/ubuntu/app
 
-# 4. Install PM2
+# 4. Move into actual Node app folder
+cd terraform/app
+
+# 5. Install PM2
 sudo npm install -g pm2
 
-# 5. Environment variables
+# 6. Environment variables
 export PORT=${node_app_port}
 
 export DATABASE_URL='postgresql://${db_username}:${db_password}@${db_endpoint}/${db_name}'
 
-# Persist environment variables
+# Persist variables
 echo "export PORT=${node_app_port}" >> /home/ubuntu/.bashrc
 
 echo "export DATABASE_URL='postgresql://${db_username}:${db_password}@${db_endpoint}/${db_name}'" >> /home/ubuntu/.bashrc
 
-# 6. Install dependencies
-cd /home/ubuntu/app
+# 7. Install dependencies
+npm install
 
-npm install --production
-
-# 7. Start app
+# 8. Start app
 pm2 start index.js --name node-app
 
 pm2 save
-
-pm2 startup systemd -u ubuntu --hp /home/ubuntu
