@@ -28,11 +28,11 @@ locals {
     
     # 6. Environment variables
     export PORT=${node_app_port}
-    export DATABASE_URL='postgresql://${db_username}:${db_password}@${db.endpoint}/${db_name}'
+    export DATABASE_URL='postgresql://${db_username}:${db_password}@${db_endpoint}/${db_name}'
     
     # Persist variables
     echo "export PORT=${node_app_port}" | sudo -u ubuntu tee -a /home/ubuntu/.bashrc > /dev/null
-    echo "export DATABASE_URL='postgresql://${db_username}:${db_password}@${db.endpoint}/${db_name}'" | sudo -u ubuntu tee -a /home/ubuntu/.bashrc > /dev/null
+    echo "export DATABASE_URL='postgresql://${db_username}:${db_password}@${db_endpoint}/${db_name}'" | sudo -u ubuntu tee -a /home/ubuntu/.bashrc > /dev/null
     
     # 8. Start app with PM2
     sudo -u ubuntu pm2 start index.js --name node-app
