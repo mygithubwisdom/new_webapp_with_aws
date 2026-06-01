@@ -34,7 +34,7 @@ echo "export DATABASE_URL='postgresql://${db_username}:${db_password}@${db_endpo
     
 # 8. Start app with PM2
 sudo -u ubuntu pm2 start index.js --name node-app
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ubuntu --hp /home/ubuntu
 sudo -u ubuntu pm2 save
-sudo -u ubuntu pm2 startup systemd -u ubuntu --hp /home/ubuntu
     
 echo "Deployment complete"
