@@ -25,6 +25,7 @@ sudo -u ubuntu npm install --production
 npm install -g pm2
     
 # 6. Environment variables
+export NODE_ENV=production
 export PORT=${node_app_port}
 export DATABASE_URL='postgresql://${db_username}:${db_password}@${db_endpoint}/${db_name}'
     

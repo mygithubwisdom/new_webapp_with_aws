@@ -26,7 +26,7 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Hello World!',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development' //production
   });
 });
 
