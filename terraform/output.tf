@@ -118,3 +118,13 @@ output "private_nacl_id" {
 output "public_nacl_id" {
   value = aws_network_acl.PublicSubnetNACL.id
 }
+
+output "ubuntu_ami_id" {
+  description = "Latest Ubuntu 22.04 AMI ID"
+  value       = data.aws_ami.ubuntu.id
+}
+
+output "asg_name" {
+  description = "aws autoscaling group"
+  value       = aws_autoscaling_group.app.name
+}
