@@ -2,7 +2,7 @@
 set -e
     
 #1. System setup
-curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 apt-get update
 apt-get install -y nodejs git awscli
     
