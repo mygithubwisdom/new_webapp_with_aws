@@ -1,4 +1,4 @@
-name: CI/CD - Terraform & SSM Deployment
+name: CI/CD - Terraform & Application Deployment
 
 on:
   push:
@@ -10,90 +10,282 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  AWS_REGION: "us-east-1"
+  AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+  PROJECT_NAME: "terraform-aws-webapp-setup"
+  TERRAFORM_VERSION: "1.9.5"
+  S3_BUCKET: "terraform-aws-webapp-prod-state-1669w"
+
 jobs:
-  deploy:
-    environment: ${{ github.ref_name }}
+
+  # ========================================================
+  # STAGE 1: CODE QUALITY & SECURITY
+  # ========================================================
+
+  validate-and-scan:
+
     runs-on: ubuntu-latest
-    
-    env:
-      PROJECT_NAME: "terraform-aws-webapp-setup" 
-      S3_BUCKET: "terraform-aws-webapp-setup-static-content-4ec3ab3c"
 
     defaults:
       run:
         working-directory: ./terraform
 
     steps:
-      - name: Checkout code
+
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Run Trivy Security Scan
+        uses: aquasecurity/trivy-action@master
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
-          aws-region: us-east-1
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: HIGH,CRITICAL
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.5
 
-      - name: Terraform Init/Plan/Apply
-        run: |
-          terraform init
-          terraform plan -out=tfplan \
-            -var-file="${{ github.ref_name }}.tfvars" \
-            -var="ami_id=${{ secrets.PROD_AMI_ID }}" \
-            -var="key_pair_name=${{ secrets.KEY_PAIR_NAME }}"
-          terraform apply -auto-approve tfplan
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
 
-      - name: Upload Static Content to S3
-        working-directory: ./ # Run from root to find your /public folder
-        run: |
-          echo "Syncing static assets to S3..."
-          aws s3 sync ./public "s3://${{ env.S3_BUCKET }}/static/" --delete --region us-east-1
+      - name: Terraform Init
+        run: terraform init
 
-      - name: Deploy App Code via SSM
-        working-directory: ./
+      - name: Terraform Validate
+        run: terraform validate
+
+  # ========================================================
+  # STAGE 2: INFRASTRUCTURE (TERRAFORM)
+  # ========================================================
+
+  deploy-infrastructure:
+
+    needs: validate-and-scan
+
+    runs-on: ubuntu-latest
+
+    environment: ${{ github.ref_name }}
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
         run: |
-          echo "Fetching Healthy Instance IDs from ASG..."
-          
+          terraform plan \
+            -out=tfplan \
+            -var-file="${{ github.ref_name }}.tfvars"
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+
+  # ========================================================
+  # STAGE 3: APPLICATION DEPLOYMENT (SSM)
+  # ========================================================
+
+  deploy-application:
+
+    needs: deploy-infrastructure
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get Healthy Instances
+        run: |
+
           INSTANCE_IDS=$(aws autoscaling describe-auto-scaling-groups \
             --auto-scaling-group-names "${{ env.PROJECT_NAME }}-asg" \
-            --query 'AutoScalingGroups[0].Instances[?HealthStatus==`Healthy`].InstanceId' \
+            --query 'AutoScalingGroups[0].Instances[?LifecycleState==`InService`].InstanceId' \
             --output text)
 
-          if [ -z "$INSTANCE_IDS" ] || [ "$INSTANCE_IDS" == "None" ]; then
-            echo "❌ Error: No healthy instances found in ASG. Check AWS Console."
+          if [ -z "$INSTANCE_IDS" ]; then
+            echo "No healthy instances found"
             exit 1
           fi
 
-          echo "🚀 Deploying to Instances: $INSTANCE_IDS"
+          echo "INSTANCE_IDS=$INSTANCE_IDS" >> $GITHUB_ENV
 
-          # Single SSM command to update code and restart the process
-          aws ssm send-command \
+      - name: Deploy Application via SSM
+        run: |
+
+          COMMAND_ID=$(aws ssm send-command \
             --instance-ids $INSTANCE_IDS \
             --document-name "AWS-RunShellScript" \
-            --comment "Update code and restart node-app" \
+            --comment "Deploy latest application code" \
             --parameters '{
-              "commands": [
+              "commands":[
                 "cd /home/ubuntu/app",
-                "sudo git pull origin ${{ github.ref_name }}",
-                "npm install --production",
-                "pm2 restart node-app || pm2 start index.js --name node-app",
-                "pm2 save"
+                "git fetch origin",
+                "git reset --hard origin/'"${{ github.ref_name }}"'",
+                "cd terraform/app",
+                "npm ci --production",
+                "sudo -u ubuntu pm2 restart node-app || sudo -u ubuntu pm2 start index.js --name node-app",
+                "sudo -u ubuntu pm2 save"
               ]
-            }'
+            }' \
+            --query "Command.CommandId" \
+            --output text)
 
-      - name: Verify Production Health
-        run: |
-          echo "Waiting for app restart..."
-          sleep 20
-          ALB_DNS=$(terraform output -raw alb_dns_name)
-          echo "Testing health endpoint at http://$ALB_DNS/health"
-          curl -f http://$ALB_DNS/health || exit 1
+          echo "COMMAND_ID=$COMMAND_ID" >> $GITHUB_ENV
 
-      - name: Notify Status
-        if: always()
+      - name: Wait for SSM Completion
         run: |
-          echo "Deployment to ${{ github.ref_name }} finished with status: ${{ job.status }}"
+
+          echo "Waiting for SSM command completion..."
+
+          for i in {1..20}; do
+
+            STATUS=$(aws ssm list-command-invocations \
+              --command-id $COMMAND_ID \
+              --details \
+              --query "CommandInvocations[0].Status" \
+              --output text)
+
+            echo "Attempt $i - Status: $STATUS"
+
+            if [ "$STATUS" = "Success" ]; then
+              exit 0
+            fi
+
+            if [ "$STATUS" = "Failed" ] || \
+               [ "$STATUS" = "Cancelled" ] || \
+               [ "$STATUS" = "TimedOut" ]; then
+              exit 1
+            fi
+
+            sleep 15
+
+          done
+
+          echo "SSM command timeout"
+          exit 1
+  
+      - name: Upload Static Content to S3
+        run: |
+              echo "📦 Syncing to S3: ${{ env.S3_BUCKET }}"
+              aws s3 sync ./public "s3://${{ env.S3_BUCKET }}/static/" \
+                --delete \
+                --region ${{ env.AWS_REGION }}
+
+  # ========================================================
+  # STAGE 4: DEPLOYMENT VERIFICATION
+  # ========================================================
+
+  verify-deployment:
+
+    needs: deploy-application
+
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./terraform
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Read ALB DNS
+        run: |
+          echo "ALB_DNS=$(terraform output -raw alb_dns_name)" >> $GITHUB_ENV
+
+      - name: Verify Health Endpoint
+        run: |
+
+          for i in {1..10}; do
+
+            echo "Health Check Attempt $i"
+
+            if curl -f http://$ALB_DNS/health; then
+              echo "Health Check Passed"
+              exit 0
+            fi
+
+            sleep 15
+
+          done
+
+          echo "Health Check Failed"
+          exit 1
+
+      - name: Verify Root Endpoint
+        run: |
+          curl -f http://$ALB_DNS/
+
+      - name: Verify API Endpoint
+        continue-on-error: true
+        run: |
+          curl -f http://$ALB_DNS/api/info
+
+  # ========================================================
+  # STAGE 5: NOTIFICATIONS
+  # ========================================================
+
+  notify:
+
+    needs:
+      - validate-and-scan
+      - deploy-infrastructure
+      - deploy-application
+      - verify-deployment
+
+    if: always()
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Deployment Summary
+        run: |
+          echo "===================================="
+          echo "Deployment Finished"
+          echo "Branch : ${{ github.ref_name }}"
+          echo "Status : ${{ job.status }}"
+          echo "Region : ${{ env.AWS_REGION }}"
+          echo "===================================="
+
