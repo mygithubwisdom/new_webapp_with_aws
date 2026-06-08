@@ -15,7 +15,6 @@ env:
   AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
   PROJECT_NAME: "terraform-aws-webapp-setup"
   TERRAFORM_VERSION: "1.9.5"
-  S3_BUCKET: "terraform-aws-webapp-prod-state-1669w"
 
 jobs:
 
@@ -192,7 +191,7 @@ jobs:
   
       - name: Upload Static Content to S3
         run: |
-              echo "📦 Syncing to S3: ${{ env.S3_BUCKET }}"
+              echo "Syncing to S3: ${{ env.S3_BUCKET }}"
               aws s3 sync ./public "s3://${{ env.S3_BUCKET }}/static/" \
                 --delete \
                 --region ${{ env.AWS_REGION }}
