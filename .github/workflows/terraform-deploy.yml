@@ -51,6 +51,12 @@ jobs:
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+           role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+           aws-region: us-east-1
+      
       - name: Terraform Init
         run: terraform init
 
@@ -144,10 +150,10 @@ jobs:
             --parameters '{
               "commands":[
                 "cd /home/ubuntu/app",
-                "git fetch origin",
-                "git reset --hard origin/'"${{ github.ref_name }}"'",
-                "cd terraform/app",
-                "npm ci --production",
+                "sudo -u ubuntu git fetch origin",
+                "sudo -u ubuntu git reset --hard origin/'"${{ github.ref_name }}"'",
+                "cd /home/ubuntu/app/terraform/app",
+                "sudo -u ubuntu npm ci --production",
                 "sudo -u ubuntu pm2 restart node-app || sudo -u ubuntu pm2 start index.js --name node-app",
                 "sudo -u ubuntu pm2 save"
               ]
