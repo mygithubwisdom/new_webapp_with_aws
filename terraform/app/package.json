@@ -22,7 +22,8 @@
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.919.0",
-    "express": "^4.21.2"
+    "express": "^4.21.2",
+    "fast-xml-builder": "^1.1.7"
   },
   "devDependencies": {
     "jest": "^30.2.0",
