@@ -195,9 +195,16 @@ jobs:
           echo "SSM command timeout"
           exit 1
   
-      - name: Upload Static Content to S3
+      - name: Upload Static Content to S3 // Get s3 bucket name 
+        id: tf-output
         run: |
-              echo "Syncing to S3: ${{ env.S3_BUCKET }}"
+          S3_BUCKET=$(terraform output -raw s3_bucket_name)
+          echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_OUTPUT
+
+      - name: Sync Static Content to S3
+        env:
+          S3_BUCKET: ${{ steps.tf-output.outputs.S3_BUCKET }}
+        run: |
               aws s3 sync ./public "s3://${{ env.S3_BUCKET }}/static/" \
                 --delete \
                 --region ${{ env.AWS_REGION }}
