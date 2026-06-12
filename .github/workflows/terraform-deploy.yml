@@ -102,7 +102,7 @@ jobs:
         run: |
           terraform plan \
             -out=tfplan \
-            -var-file="${{ github.ref_name }}.tfvars"
+            -var-file="terraform.tfvars"
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
