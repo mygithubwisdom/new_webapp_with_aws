@@ -84,6 +84,14 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Create terraform.tfvars
+        run: |
+          cat > terraform.tfvars <<EOF
+          allowed_country_codes = ["$(echo "${{ secrets.WAF_COUNTRY_CODES }}" | sed 's/,/","/g')"]
+          notification_email = "${{ secrets.NOTIFICATION_EMAIL }}"
+          mfa_required_users = ["$(echo "${{ secrets.MFA_REQUIRED_USERS }}" | sed 's/,/","/g')"]
+          EOF
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -227,6 +235,14 @@ jobs:
 
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Create terraform.tfvars
+        run: |
+          cat > terraform.tfvars <<EOF
+          allowed_country_codes = ["$(echo "${{ secrets.WAF_COUNTRY_CODES }}" | sed 's/,/","/g')"]
+          notification_email = "${{ secrets.NOTIFICATION_EMAIL }}"
+          mfa_required_users = ["$(echo "${{ secrets.MFA_REQUIRED_USERS }}" | sed 's/,/","/g')"]
+          EOF
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
