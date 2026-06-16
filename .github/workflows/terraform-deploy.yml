@@ -119,9 +119,7 @@ jobs:
         run: |
           terraform apply \
              -input=false \
-             -auto-approve \
-             -var="ami_id=${{ secrets.PROD_AMI_ID }}" \
-             -var="db_password=${{ secrets.DB_PASSWORD }}" \
+             -auto-approve \             
              tfplan
 
   # ========================================================
