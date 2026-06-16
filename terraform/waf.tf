@@ -5,7 +5,7 @@
 resource "aws_wafv2_web_acl" "main" {
   name        = "${var.project_name}-waf-acl"
   description = "WAF rules for ${var.project_name} ALB"
-  scope       = "REGIONAL"  # Use REGIONAL for ALB (CLOUDFRONT for CloudFront)
+  scope       = "REGIONAL" # Use REGIONAL for ALB (CLOUDFRONT for CloudFront)
 
   default_action {
     allow {}
@@ -68,7 +68,7 @@ resource "aws_wafv2_web_acl" "main" {
 
     statement {
       rate_based_statement {
-        limit              = 2000  # Requests per 5 minutes from single IP
+        limit              = 2000 # Requests per 5 minutes from single IP
         aggregate_key_type = "IP"
       }
     }
@@ -91,7 +91,7 @@ resource "aws_wafv2_web_acl" "main" {
 
     statement {
       geo_match_statement {
-        country_codes = var.blocked_countries  # e.g., ["CN", "RU", "KP"]
+        country_codes = var.blocked_countries
       }
     }
 
@@ -168,7 +168,7 @@ resource "aws_wafv2_web_acl_association" "alb" {
 
 # CloudWatch Log Group for WAF
 resource "aws_cloudwatch_log_group" "waf_logs" {
-  name              = "/aws/waf/${var.project_name}"
+  name              = "aws-waf-logs-terraform-aws-webapp-setup"
   retention_in_days = 7
 
   tags = {

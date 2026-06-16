@@ -7,7 +7,7 @@ output "vpc_id" {
 
 output "alb_dns_name" {
   description = "DNS name of the Application Load Balancer - Use this to access the app"
-  value       = aws_lb.app.dns_name
+  value       = aws_lb.main.dns_name
 }
 
 output "s3_bucket_name" {
@@ -70,10 +70,10 @@ output "sns_topic_arn" {
   value       = aws_sns_topic.alerts.arn
 }
 
-output "dashboard_name" {
-  description = "CloudWatch Dashboard Name"
-  value       = aws_cloudwatch_dashboard.main.dashboard_name
-}
+# output "dashboard_name" {
+#   description = "CloudWatch Dashboard Name"
+#   value       = aws_cloudwatch_dashboard.main.dashboard_name
+# }
 
 # ==========================================
 # WAF (APPLICATION FIREWALL)
@@ -81,4 +81,50 @@ output "dashboard_name" {
 output "waf_web_acl_arn" {
   description = "WAF Web ACL ARN protecting the ALB"
   value       = aws_wafv2_web_acl.main.arn
+}
+
+output "target_group_arn" {
+  description = "ARN of the target group"
+  value       = aws_lb_target_group.main.arn
+}
+
+# --- Private Subnet Outputs ---
+output "private_subnet_a_id" {
+  description = "The ID of the first private subnet"
+  value       = aws_subnet.Privatesubnet_a.id
+}
+
+output "private_subnet_b_id" {
+  description = "The ID of the second private subnet"
+  value       = aws_subnet.Privatesubnet_b.id
+}
+
+# --- Public Subnet Outputs ---
+output "public_subnet_id" {
+  description = "The ID of the first public subnet"
+  value       = aws_subnet.Publicsubnet.id
+}
+
+output "public_subnet_b_id" {
+  description = "The ID of the second public subnet"
+  value       = aws_subnet.Publicsubnet_b.id
+}
+
+# --- NACL Outputs (Useful for verification) ---
+output "private_nacl_id" {
+  value = aws_network_acl.PrivateSubnetNACL.id
+}
+
+output "public_nacl_id" {
+  value = aws_network_acl.PublicSubnetNACL.id
+}
+
+output "ubuntu_ami_id" {
+  description = "Latest Ubuntu 22.04 AMI ID"
+  value       = data.aws_ami.ubuntu.id
+}
+
+output "asg_name" {
+  description = "aws autoscaling group"
+  value       = aws_autoscaling_group.app.name
 }

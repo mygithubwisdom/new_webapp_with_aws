@@ -1,5 +1,5 @@
-resource "aws_lb" "app" {
-  name               = "${var.project_name}-alb"
+resource "aws_lb" "main" {
+  name               = "${var.project_name}-alb" #3
   load_balancer_type = "application"
   internal           = false
   security_groups    = [aws_security_group.alb_sg.id]
@@ -8,42 +8,33 @@ resource "aws_lb" "app" {
     aws_subnet.Publicsubnet_b.id
   ]
 
+  enable_deletion_protection = false
+  enable_http2               = true
+
+  # # DISABLED access_logs temporarily
+  #   access_logs {
+  #     bucket  = aws_s3_bucket.alb_logs.id
+  #     enabled = true
+  #   }
+
+  # depends_on = [
+  #   aws_s3_bucket_policy.alb_logs
+  # ]
+
   tags = {
     Name        = "${var.project_name}-alb"
     Environment = var.environment
   }
 }
 
-resource "aws_lb_target_group" "app" {
-  name     = "${var.project_name}-tg"
-  port     = var.node_app_port
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main-webapp.id
-
-  health_check {
-    path                = "/health"
-    protocol            = "HTTP"
-    matcher             = "200-399"
-    healthy_threshold   = 2
-    unhealthy_threshold = 2
-    interval            = 30
-    timeout             = 5
-  }
-
-  tags = {
-    Name        = "${var.project_name}-tg"
-    Environment = var.environment
-  }
-}
-
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.app.arn
+  load_balancer_arn = aws_lb.main.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = aws_lb_target_group.main.arn
   }
 }
 
@@ -51,9 +42,9 @@ resource "aws_launch_template" "app" {
   name_prefix   = "${var.project_name}-lt-"
   image_id      = data.aws_ami.ubuntu.id
   instance_type = var.ec2_instance_type
-  
+
   # Even with SSM, keeping the key_name for emergency access via serial console
-  key_name      = var.key_pair_name
+  key_name = var.key_pair_name
 
   # Attach the IAM Instance Profile for SSM Session Manager
   iam_instance_profile {
@@ -64,7 +55,13 @@ resource "aws_launch_template" "app" {
   vpc_security_group_ids = [aws_security_group.app_server.id]
 
   # This is where my Node.js startup script lives
-  user_data = base64encode(local.user_data)
+  user_data = base64encode(templatefile("${path.module}/scripts/deploy.sh", {
+    node_app_port = var.node_app_port
+    db_username   = var.db_username
+    db_password   = var.db_password
+    db_endpoint   = aws_db_instance.db.endpoint
+    db_name       = var.db_name
+  }))
 
   # Enforce IMDSv2 for security (Best Practice)
   metadata_options {
@@ -95,15 +92,33 @@ resource "aws_launch_template" "app" {
   }
 }
 
+resource "aws_lb_target_group" "main" {
+  name     = "${var.project_name}-tg" #4
+  port     = 3000
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main-webapp.id
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+    interval            = 30
+    path                = "/health" # ← Must exist in your app
+    protocol            = "HTTP"
+    matcher             = "200" # ← Your app must return 200
+  }
+}
+
 resource "aws_autoscaling_group" "app" {
   name                      = "${var.project_name}-asg"
   min_size                  = 1
   max_size                  = 2
   desired_capacity          = 1
-  vpc_zone_identifier       = [aws_subnet.Privatesubnet.id, aws_subnet.Privatesubnet_b.id]
+  vpc_zone_identifier       = [aws_subnet.Privatesubnet_a.id, aws_subnet.Privatesubnet_b.id]
   health_check_type         = "ELB"
   health_check_grace_period = 300
-  target_group_arns         = [aws_lb_target_group.app.arn]
+  target_group_arns         = [aws_lb_target_group.main.arn]
 
   launch_template {
     id      = aws_launch_template.app.id
@@ -125,38 +140,10 @@ resource "aws_autoscaling_group" "app" {
 
 resource "aws_db_subnet_group" "app" {
   name       = "${var.project_name}-db-subnet-group"
-  subnet_ids = [aws_subnet.Privatesubnet.id, aws_subnet.Privatesubnet_b.id]
+  subnet_ids = [aws_subnet.Privatesubnet_a.id, aws_subnet.Privatesubnet_b.id]
 
   tags = {
     Name        = "${var.project_name}-db-subnet-group"
-    Environment = var.environment
-  }
-}
-
-resource "aws_security_group" "db_sg" {
-  name        = "${var.project_name}-db-sg"
-  description = "Security group for RDS database"
-  vpc_id      = aws_vpc.main-webapp.id
-
-  # Allow DB access from app servers only
-  ingress {
-    description     = "DB access from app servers"
-    from_port       = var.db_port
-    to_port         = var.db_port
-    protocol        = "tcp"
-    security_groups = [aws_security_group.app_server.id]
-  }
-
-  egress {
-    description = "All outbound"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = [aws_vpc.main-webapp.cidr_block]
-  }
-
-  tags = {
-    Name        = "${var.project_name}-db-sg"
     Environment = var.environment
   }
 }
@@ -174,7 +161,7 @@ resource "aws_db_instance" "db" {
   engine_version          = data.aws_rds_engine_version.postgres.version
   instance_class          = var.db_instance_class
   db_subnet_group_name    = aws_db_subnet_group.app.name
-  vpc_security_group_ids  = [aws_security_group.db.id]
+  vpc_security_group_ids  = [aws_security_group.db_sg.id]
   db_name                 = var.db_name
   username                = var.db_username
   password                = var.db_password
@@ -186,12 +173,11 @@ resource "aws_db_instance" "db" {
   publicly_accessible     = false
 
   # ... other settings
-  storage_encrypted       = true
-  kms_key_id              = var.rds_kms_key_arn # Use a Customer Managed Key for Production
+  storage_encrypted = true
+  kms_key_id        = var.rds_kms_key_arn # Use a Customer Managed Key for Production
 
   tags = {
     Name        = "${var.project_name}-db"
     Environment = var.environment
   }
 }
-
