@@ -205,7 +205,19 @@ jobs:
 
           echo "SSM command timeout"
           exit 1
-  
+         
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5 
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init    
+
       - name: Upload Static Content to S3 // Get s3 bucket name 
         id: tf-output
         run: |
