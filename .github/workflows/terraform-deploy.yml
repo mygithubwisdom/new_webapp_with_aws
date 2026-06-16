@@ -109,11 +109,18 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform plan \
+            -input=false \
             -out=tfplan \
-            -var-file="terraform.tfvars"
+            -var-file="terraform.tfvars" \
+            -var="ami_id=${{ secrets.PROD_AMI_ID }}"
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
+        run: |
+          terraform apply \
+             -input=false \
+             -auto-approve \
+             -var="ami_id=${{ secrets.PROD_AMI_ID }}" \
+             tfplan
 
   # ========================================================
   # STAGE 3: APPLICATION DEPLOYMENT (SSM)
