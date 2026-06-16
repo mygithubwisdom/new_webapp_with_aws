@@ -116,12 +116,8 @@ jobs:
             -var="db_password=${{ secrets.DB_PASSWORD }}"
 
       - name: Terraform Apply
-        run: |
-          terraform apply \
-             -input=false \
-             -auto-approve \             
-             tfplan
-
+        run:  terraform apply -input=false -auto-approve tfplan
+          
   # ========================================================
   # STAGE 3: APPLICATION DEPLOYMENT (SSM)
   # ========================================================
