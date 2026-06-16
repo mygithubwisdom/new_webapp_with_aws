@@ -112,7 +112,8 @@ jobs:
             -input=false \
             -out=tfplan \
             -var-file="terraform.tfvars" \
-            -var="ami_id=${{ secrets.PROD_AMI_ID }}"
+            -var="ami_id=${{ secrets.PROD_AMI_ID }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}"
 
       - name: Terraform Apply
         run: |
@@ -120,6 +121,7 @@ jobs:
              -input=false \
              -auto-approve \
              -var="ami_id=${{ secrets.PROD_AMI_ID }}" \
+             -var="db_password=${{ secrets.DB_PASSWORD }}" \
              tfplan
 
   # ========================================================
