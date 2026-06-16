@@ -221,8 +221,7 @@ jobs:
       - name: Upload Static Content to S3 // Get s3 bucket name 
         id: tf-output
         run: |
-          S3_BUCKET=$(terraform output -raw s3_bucket_name)
-          echo "S3_BUCKET=$S3_BUCKET" >> $GITHUB_OUTPUT
+          echo "S3_BUCKET=terraform-aws-webapp-setup-static-content-544a45f9" >> $GITHUB_OUTPUT          
 
       - name: Sync Static Content to S3
         env:
