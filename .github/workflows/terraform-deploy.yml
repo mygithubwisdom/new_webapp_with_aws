@@ -15,6 +15,7 @@ env:
   AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN }}
   PROJECT_NAME: "terraform-aws-webapp-setup"
   TERRAFORM_VERSION: "1.9.5"
+  S3_BUCKET: "terraform-aws-webapp-setup-static-content-544a45f9"
 
 jobs:
 
@@ -132,12 +133,6 @@ jobs:
       
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Verify static files location
-        run: |
-         pwd
-         ls -la
-         find . -maxdepth 3 -type d
             
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -215,31 +210,6 @@ jobs:
           echo "SSM command timeout"
           exit 1
          
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.9.5 
-
-      - name: Terraform Init
-        working-directory: ./terraform
-        run: terraform init    
-
-      - name: Upload Static Content to S3 // Get s3 bucket name 
-        id: tf-output
-        run: |
-          echo "S3_BUCKET=terraform-aws-webapp-setup-static-content-544a45f9" >> $GITHUB_OUTPUT          
-
-      - name: Sync Static Content to S3
-        env:
-          S3_BUCKET: ${{ steps.tf-output.outputs.S3_BUCKET }}
-        run: |
-              aws s3 sync ./public "s3://${{ env.S3_BUCKET }}/static/" \
-                --delete \
-                --region ${{ env.AWS_REGION }}
-
   # ========================================================
   # STAGE 4: DEPLOYMENT VERIFICATION
   # ========================================================
