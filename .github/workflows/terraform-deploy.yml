@@ -133,6 +133,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Verify static files location
+        run: |
+         pwd
+         ls -la
+         find . -maxdepth 3 -type d
+            
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
